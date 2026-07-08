@@ -1,0 +1,11 @@
+# build output
+/chronos
+/dist/
+
+# local database + WAL sidecars
+*.db
+*.db-wal
+*.db-shm
+
+# editor / OS cruft
+.DS_Store
