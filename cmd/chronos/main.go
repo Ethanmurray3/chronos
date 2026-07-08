@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -31,7 +32,13 @@ func main() {
 		}
 	}()
 
-	mux := api.New(st).Routes()
+	// Attachment bytes live next to the database in chronos-files/.
+	filesDir := filepath.Join(filepath.Dir(cfg.DBPath), "chronos-files")
+	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+		log.Fatalf("create files dir %q: %v", filesDir, err)
+	}
+
+	mux := api.New(st, filesDir).Routes()
 	// Everything not matched by an /api route falls through to the UI.
 	mux.Handle("/", http.FileServerFS(webui.FS()))
 

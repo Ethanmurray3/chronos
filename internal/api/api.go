@@ -17,11 +17,14 @@ import (
 
 // Server holds the dependencies shared by the handlers.
 type Server struct {
-	st *store.Store
+	st       *store.Store
+	filesDir string // attachment bytes live here, keyed by attachment id
 }
 
-// New builds a Server over the given store.
-func New(st *store.Store) *Server { return &Server{st: st} }
+// New builds a Server over the given store. filesDir must exist.
+func New(st *store.Store, filesDir string) *Server {
+	return &Server{st: st, filesDir: filesDir}
+}
 
 // Routes returns a mux with every /api/v1 endpoint mounted. Static file
 // serving for the UI is wired up by the caller (main).
@@ -46,7 +49,10 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/v1/templates/{id}", s.getTemplate)
 	mux.HandleFunc("PUT /api/v1/templates/{id}", s.updateTemplate)
 	mux.HandleFunc("DELETE /api/v1/templates/{id}", s.deleteTemplate)
-	mux.HandleFunc("POST /api/v1/templates/from-entry/{id}", s.templateFromEntry)
+	mux.HandleFunc("POST /api/v1/entries/{id}/template", s.templateFromEntry)
+	mux.HandleFunc("POST /api/v1/templates/{id}/attachments", s.uploadAttachment)
+	mux.HandleFunc("GET /api/v1/attachments/{id}", s.downloadAttachment)
+	mux.HandleFunc("DELETE /api/v1/attachments/{id}", s.deleteAttachment)
 	mux.HandleFunc("GET /api/v1/search", s.search)
 
 	mux.HandleFunc("GET /api/v1/clients", s.listClients)

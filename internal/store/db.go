@@ -173,6 +173,19 @@ CREATE TABLE IF NOT EXISTS settings (
   PRIMARY KEY (owner_id, k)
 );
 
+-- Files attached to templates (Word letters, PDFs). Bytes live on disk in the
+-- files dir keyed by attachment id; the DB holds metadata only.
+CREATE TABLE IF NOT EXISTS attachments (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_id    INTEGER NOT NULL,
+  template_id INTEGER NOT NULL,
+  filename    TEXT    NOT NULL,
+  mime        TEXT    NOT NULL DEFAULT '',
+  size_bytes  INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS attachments_tpl ON attachments (owner_id, template_id);
+
 -- Full-text search (external-content FTS5, kept in sync by triggers) over
 -- entry descriptions and templates. This is what makes past work findable.
 CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(

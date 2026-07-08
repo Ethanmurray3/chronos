@@ -20,6 +20,9 @@ type Template struct {
 	CreatedAt     int64  `json:"created_at"`
 	UpdatedAt     int64  `json:"updated_at"`
 	WorkTypeName  string `json:"work_type_name,omitempty"`
+
+	// Attachments is populated on single-template fetches only.
+	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
 // TemplateInput carries the mutable fields for create/update.
@@ -57,14 +60,21 @@ func (s *Store) Templates(owner int64) ([]Template, error) {
 	return out, rows.Err()
 }
 
-// Template fetches one template by id, scoped to the owner.
+// Template fetches one template by id (with its attachments), scoped to the
+// owner.
 func (s *Store) Template(owner, id int64) (Template, error) {
 	row := s.db.QueryRow(`SELECT`+tplCols+tplFrom+` WHERE t.owner_id = ? AND t.id = ?`, owner, id)
 	t, err := scanTemplate(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Template{}, ErrNotFound
 	}
-	return t, err
+	if err != nil {
+		return Template{}, err
+	}
+	if t.Attachments, err = s.AttachmentsForTemplate(owner, id); err != nil {
+		return Template{}, err
+	}
+	return t, nil
 }
 
 // CreateTemplate inserts a new template.

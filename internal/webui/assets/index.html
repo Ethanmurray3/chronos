@@ -5,37 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chronos</title>
   <link rel="stylesheet" href="/style.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='none' stroke='%23c8962a' stroke-width='6'/%3E%3Cpath d='M50 26v26l18 10' fill='none' stroke='%23c8962a' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='none' stroke='%23b8860f' stroke-width='6'/%3E%3Cpath d='M50 26v26l18 10' fill='none' stroke='%23b8860f' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E" />
 </head>
 <body>
-  <header class="topbar">
+  <aside class="side">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <div>
-        <h1>Chronos</h1>
-        <p class="tagline">Time &amp; client work</p>
+      <div class="brand-text">
+        <span class="brand-name">Chronos</span>
+        <span class="brand-sub">Time &amp; client work</span>
       </div>
     </div>
-    <nav class="tabs" id="tabs">
-      <button data-view="today" class="active">Today</button>
-      <button data-view="todos">To-do</button>
-      <button data-view="clients">Clients</button>
-      <button data-view="library">Library</button>
-      <button data-view="reports">Reports</button>
-    </nav>
-    <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
-  </header>
 
-  <main id="app">
+    <nav class="nav" id="tabs" aria-label="Main">
+      <button data-view="today" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span>Today</span>
+      </button>
+      <button data-view="todos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8.5 12.2l2.4 2.4 4.8-5.2"/></svg>
+        <span>To-do</span>
+      </button>
+      <button data-view="clients">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c0-3.2 2.4-5.3 5.5-5.3s5.5 2.1 5.5 5.3"/><circle cx="16.8" cy="9.5" r="2.4"/><path d="M16.5 14.4c2.5.3 4 2.1 4 4.6"/></svg>
+        <span>Clients</span>
+      </button>
+      <button data-view="library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M5 4.5A2.5 2.5 0 017.5 2H19v20H7.5A2.5 2.5 0 015 19.5z"/><path d="M9 2v20"/></svg>
+        <span>Library</span>
+      </button>
+      <button data-view="reports">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="13" width="3.6" height="7" rx="1"/><rect x="10.2" y="8" width="3.6" height="12" rx="1"/><rect x="16.4" y="4" width="3.6" height="16" rx="1"/></svg>
+        <span>Reports</span>
+      </button>
+    </nav>
+
+    <button id="side-timer" class="side-timer" hidden title="A timer is running — go to Today">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <span class="st-text">
+        <span id="side-timer-label">Working</span>
+        <span id="side-timer-clock">0:00:00</span>
+      </span>
+    </button>
+
+    <div class="side-foot">
+      <button id="settings-btn" class="nav-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="15" cy="7" r="2" fill="var(--surface)"/><circle cx="8" cy="12" r="2" fill="var(--surface)"/><circle cx="17" cy="17" r="2" fill="var(--surface)"/></svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="content" id="app">
     <!-- ===== TODAY ===== -->
     <section id="view-today" class="view">
-      <div class="day-nav">
-        <button id="day-prev" class="icon-btn" title="Previous day" aria-label="Previous day">‹</button>
-        <div class="day-label" id="day-label">Today</div>
-        <input type="date" id="day-pick" aria-label="Jump to date" />
-        <button id="day-next" class="icon-btn" title="Next day" aria-label="Next day">›</button>
-        <button id="day-today" class="ghost-btn" hidden>Back to today</button>
-      </div>
+      <header class="page-head">
+        <div class="ph-title">
+          <h1 id="day-label">Today</h1>
+          <div class="day-controls">
+            <button id="day-prev" class="icon-btn" title="Previous day" aria-label="Previous day">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg>
+            </button>
+            <input type="date" id="day-pick" aria-label="Jump to date" />
+            <button id="day-next" class="icon-btn" title="Next day" aria-label="Next day">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg>
+            </button>
+            <button id="day-today" class="ghost-btn sm" hidden>Back to today</button>
+          </div>
+        </div>
+      </header>
 
       <div class="daybar" id="daybar"></div>
 
@@ -54,7 +92,10 @@
 
     <!-- ===== TO-DO ===== -->
     <section id="view-todos" class="view" hidden>
-      <h2 class="section-title">To-do</h2>
+      <header class="page-head">
+        <div class="ph-title"><h1>To-do</h1></div>
+        <p class="ph-sub">Deadlines, follow-ups, and the list itself — start a timer from any task.</p>
+      </header>
       <form id="todo-form" class="todo-form">
         <input name="title" placeholder="What needs doing?" required class="grow" />
         <select name="client" id="todo-client"></select>
@@ -71,9 +112,12 @@
 
     <!-- ===== CLIENTS ===== -->
     <section id="view-clients" class="view" hidden>
+      <header class="page-head">
+        <div class="ph-title"><h1>Clients</h1></div>
+        <p class="ph-sub">Every client carries your firm's number, so time lands where it should.</p>
+      </header>
       <div class="split">
         <div class="col">
-          <h2 class="section-title">Clients</h2>
           <form id="client-form" class="inline-form">
             <input name="name" placeholder="Client name" required />
             <input name="code" placeholder="Client #" class="short" />
@@ -91,9 +135,12 @@
 
     <!-- ===== LIBRARY ===== -->
     <section id="view-library" class="view" hidden>
-      <h2 class="section-title">Work library</h2>
+      <header class="page-head">
+        <div class="ph-title"><h1>Library</h1></div>
+        <p class="ph-sub">Everything you've coded and saved, one search away.</p>
+      </header>
       <div class="lib-bar">
-        <input id="lib-search" type="search" placeholder="Search everything you've coded and saved…" />
+        <input id="lib-search" type="search" placeholder="Search past work and templates…" />
         <button id="tpl-new" type="button" class="ghost-btn">New template</button>
       </div>
       <div class="split">
@@ -106,19 +153,29 @@
               <label>Work type<select name="work_type"></select></label>
               <label>Tags<input name="tags" placeholder="comma, separated" /></label>
             </div>
-            <label>Body<textarea name="body" rows="14" placeholder="The reusable text — letter skeleton, step list, checklist…"></textarea></label>
-            <div class="dialog-actions">
+            <label>Body<textarea name="body" rows="12" placeholder="The reusable text — letter skeleton, step list, checklist…"></textarea></label>
+            <div class="form-actions">
               <button type="button" id="tpl-delete" class="ghost-btn danger" hidden>Delete</button>
               <button type="submit">Save</button>
             </div>
           </form>
+          <div class="attach" id="tpl-attach" hidden>
+            <div class="attach-head">
+              <span class="section-title">Attachments</span>
+              <button type="button" id="attach-btn" class="ghost-btn sm">Attach file</button>
+            </div>
+            <div id="attach-list" class="attach-list"></div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- ===== REPORTS ===== -->
     <section id="view-reports" class="view" hidden>
-      <h2 class="section-title">Reports</h2>
+      <header class="page-head">
+        <div class="ph-title"><h1>Reports</h1></div>
+        <p class="ph-sub">Any range, grouped how your firm thinks — client, work type, or day.</p>
+      </header>
       <form id="report-form" class="report-form">
         <label>From <input type="date" name="from" /></label>
         <label>To <input type="date" name="to" /></label>
@@ -161,17 +218,18 @@
         <button type="button" id="wt-import-btn" class="ghost-btn">Import CSV</button>
       </div>
 
-      <div class="dialog-actions">
+      <div class="form-actions">
         <button value="cancel" class="ghost-btn">Cancel</button>
         <button value="save" id="settings-save">Save</button>
       </div>
     </form>
   </dialog>
 
+  <div id="toast" class="toast" hidden></div>
+
   <input type="file" id="wt-file" accept=".csv,text/csv" hidden />
   <input type="file" id="client-file" accept=".csv,text/csv" hidden />
-
-  <div id="toast" class="toast" hidden></div>
+  <input type="file" id="attach-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.rtf,.csv,.eml,.msg" hidden />
 
   <script type="module" src="/app.js"></script>
 </body>

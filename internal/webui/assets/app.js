@@ -35,6 +35,14 @@ const shiftISO = (iso, days) => {
   return fmtISO(d);
 };
 
+// Inline icons (stroke inherits currentColor) for row actions.
+const ic = {
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.4v13.2a.6.6 0 0 0 .92.5l10.3-6.6a.6.6 0 0 0 0-1L8.42 4.9a.6.6 0 0 0-.92.5z"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 2h8l6 6v14H6z"/><path d="M13 2v7h7"/></svg>',
+};
+
 function toast(msg, isErr = false) {
   const t = $("#toast");
   t.textContent = msg;
@@ -221,17 +229,30 @@ function renderTimer() {
       </form>`;
     $("#start-form").addEventListener("submit", startTimer);
   }
+  updateSideTimer();
+}
+
+// The sidebar chip mirrors the running timer so it stays visible on every view.
+function updateSideTimer() {
+  const chip = $("#side-timer");
+  if (!state.timer) {
+    chip.hidden = true;
+    return;
+  }
+  chip.hidden = false;
+  $("#side-timer-label").textContent =
+    state.timer.client_name || state.timer.description || "Working";
 }
 
 function tickTimer() {
   if (!state.timer) return;
-  const clockEl = $("#live-clock");
-  if (!clockEl) return;
   const secs = Math.max(0, Math.floor(Date.now() / 1000) - state.timer.started_at);
   const h = Math.floor(secs / 3600);
   const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
   const s = String(secs % 60).padStart(2, "0");
-  clockEl.innerHTML = `<span class="pulse"></span>${h}:${m}:${s}`;
+  const clockEl = $("#live-clock");
+  if (clockEl) clockEl.innerHTML = `<span class="pulse"></span>${h}:${m}:${s}`;
+  $("#side-timer-clock").textContent = `${h}:${m}:${s}`;
 }
 
 async function startTimer(e) {
@@ -317,8 +338,8 @@ function renderEntries() {
       </div>
       <div class="dur">${hours(e.effective_min)}</div>
       <div class="actions">
-        <button data-act="tpl" title="Save as template">⧉</button>
-        <button data-act="del" title="Delete">✕</button>
+        <button data-act="tpl" title="Save as template">${ic.copy}</button>
+        <button data-act="del" title="Delete">${ic.x}</button>
       </div>
     </div>`).join("");
 }
@@ -333,7 +354,7 @@ async function onEntriesClick(e) {
       await DEL("/api/v1/time-entries/" + id);
       await refreshToday();
     } else if (btn.dataset.act === "tpl") {
-      const t = await POST("/api/v1/templates/from-entry/" + id);
+      const t = await POST(`/api/v1/entries/${id}/template`);
       document.querySelector('#tabs button[data-view="library"]').click();
       openTplEditor(t);
       toast("Saved to library — polish it into a template");
@@ -440,8 +461,8 @@ function todoRow(t) {
       <div class="todo-meta">${t.client_name ? `<span class="who">${esc(t.client_name)}</span>` : ""}${due}${age}</div>
     </div>
     <div class="todo-actions">
-      ${t.status !== "done" ? `<button data-act="start" title="Start a timer for this">▶</button>` : ""}
-      <button data-act="del" title="Delete">✕</button>
+      ${t.status !== "done" ? `<button data-act="start" title="Start a timer for this">${ic.play}</button>` : ""}
+      <button data-act="del" title="Delete">${ic.x}</button>
     </div>
   </div>`;
 }
@@ -737,7 +758,65 @@ function openTplEditor(t) {
   f.tags.value = t?.tags || "";
   f.body.value = t?.body || "";
   f.work_type.innerHTML = workTypeOptionsFor(t?.work_type_id);
+  $("#tpl-attach").hidden = !t;
+  if (t) renderAttachList(t.attachments);
   f.title.focus();
+}
+
+// ---------- template attachments (Word / PDF files) ----------
+const fmtSize = (b) =>
+  b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+
+function renderAttachList(atts) {
+  $("#attach-list").innerHTML = (atts || []).length
+    ? atts.map((a) => `
+      <div class="attach-row" data-id="${a.id}">
+        ${ic.file}
+        <a class="attach-name" href="/api/v1/attachments/${a.id}" title="Download">${esc(a.filename)}</a>
+        <span class="attach-size">${fmtSize(a.size_bytes)}</span>
+        <button type="button" data-act="att-del" title="Remove">${ic.x}</button>
+      </div>`).join("")
+    : `<p class="empty small">No files yet — attach the Word or PDF version of this letter.</p>`;
+}
+
+async function refreshAttachments() {
+  if (!editingTplId) return;
+  try {
+    const t = await GET("/api/v1/templates/" + editingTplId);
+    renderAttachList(t.attachments);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function wireAttachments() {
+  $("#attach-btn").addEventListener("click", () => $("#attach-file").click());
+  $("#attach-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file || !editingTplId) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch(`/api/v1/templates/${editingTplId}/attachments`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      toast("File attached");
+      await refreshAttachments();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+  $("#attach-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest('button[data-act="att-del"]');
+    if (!btn) return;
+    try {
+      await DEL("/api/v1/attachments/" + btn.closest(".attach-row").dataset.id);
+      await refreshAttachments();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
 }
 
 async function onLibClick(e) {
@@ -745,7 +824,7 @@ async function onLibClick(e) {
   if (promote) {
     const id = promote.closest(".lib-hit").dataset.id;
     try {
-      const t = await POST("/api/v1/templates/from-entry/" + id);
+      const t = await POST(`/api/v1/entries/${id}/template`);
       toast("Saved to library");
       openTplEditor(t);
     } catch (err) {
@@ -777,6 +856,9 @@ async function submitTpl(e) {
       ? await PUT("/api/v1/templates/" + editingTplId, body)
       : await POST("/api/v1/templates", body);
     editingTplId = t.id;
+    $("#tpl-delete").hidden = false;
+    $("#tpl-attach").hidden = false;
+    renderAttachList(t.attachments);
     toast("Template saved");
     await initLibrary();
   } catch (err) {
@@ -823,8 +905,11 @@ function wireForms() {
     document.querySelector('#tabs button[data-view="todos"]').click());
   wireWtManager();
   wireLibrary();
+  wireAttachments();
   wireImport("#client-import-btn", "#client-file", "/api/v1/clients/import", renderClients);
   wireImport("#wt-import-btn", "#wt-file", "/api/v1/work-types/import", renderWtManager);
+  $("#side-timer").addEventListener("click", () =>
+    document.querySelector('#tabs button[data-view="today"]').click());
   $("#client-form").addEventListener("submit", submitClient);
   $("#client-list").addEventListener("click", (e) => {
     const row = e.target.closest(".client-row");

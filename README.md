@@ -59,7 +59,9 @@ importable from CSV.
   everywhere.
 - **Library** — reusable templates (letter skeletons, reorg step lists) plus
   full-text search over *everything you've ever coded*. Save any past entry as
-  a template with one click, then polish it.
+  a template with one click, then polish it. Attach the real deliverables —
+  Word letters, PDFs, worksheets — to any template; files live on disk next to
+  the database in `chronos-files/`, so backup means copying one folder.
 - **Reports** — total any date range grouped by client, work type, or day, and
   export it as CSV. The same CSV shape imports back in (only `date` and
   `minutes` columns are required).
