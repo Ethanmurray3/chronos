@@ -54,6 +54,70 @@ func (s *Store) CreateWorkType(owner int64, name, category string, billable bool
 	return WorkType{ID: id, Name: name, Category: category, BillableDefault: billable, Sort: maxSort}, nil
 }
 
+// UpdateWorkType renames/recategorizes a work type and sets its billable
+// default.
+func (s *Store) UpdateWorkType(owner, id int64, name, category string, billable bool) (WorkType, error) {
+	res, err := s.db.Exec(
+		`UPDATE work_types SET name = ?, category = ?, billable_default = ?
+		  WHERE owner_id = ? AND id = ?`,
+		name, category, boolToInt(billable), owner, id)
+	if err != nil {
+		return WorkType{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return WorkType{}, ErrNotFound
+	}
+	var w WorkType
+	var b int
+	err = s.db.QueryRow(
+		`SELECT id, name, category, billable_default, sort FROM work_types
+		  WHERE owner_id = ? AND id = ?`, owner, id).
+		Scan(&w.ID, &w.Name, &w.Category, &b, &w.Sort)
+	w.BillableDefault = b == 1
+	return w, err
+}
+
+// DeleteWorkType removes a work type, refusing (ErrInUse) while time entries
+// or templates still reference it — history must stay attributable.
+func (s *Store) DeleteWorkType(owner, id int64) error {
+	var n int
+	if err := s.db.QueryRow(
+		`SELECT (SELECT COUNT(*) FROM time_entries WHERE owner_id = ?1 AND work_type_id = ?2)
+		      + (SELECT COUNT(*) FROM templates    WHERE owner_id = ?1 AND work_type_id = ?2)`,
+		owner, id).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return ErrInUse
+	}
+	res, err := s.db.Exec(`DELETE FROM work_types WHERE owner_id = ? AND id = ?`, owner, id)
+	if err != nil {
+		return err
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpsertWorkType matches by name (case-insensitive) and updates category and
+// billable default, or creates the work type. Used by CSV import. Returns
+// true when a new row was created.
+func (s *Store) UpsertWorkType(owner int64, name, category string, billable bool) (bool, error) {
+	var id int64
+	err := s.db.QueryRow(
+		`SELECT id FROM work_types WHERE owner_id = ? AND name = ? COLLATE NOCASE`,
+		owner, name).Scan(&id)
+	if err == nil {
+		_, err = s.UpdateWorkType(owner, id, name, category, billable)
+		return false, err
+	}
+	if _, err := s.CreateWorkType(owner, name, category, billable); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // workTypeBillable reports the billable default for a work type, used when an
 // entry does not specify billable explicitly. Missing types default to true.
 func (s *Store) workTypeBillable(owner, id int64) bool {

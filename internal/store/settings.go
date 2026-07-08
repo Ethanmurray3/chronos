@@ -21,13 +21,15 @@ type Settings struct {
 	BusySeasonTargetMin int    `json:"busy_season_target_min"` // Jan–Apr, default 480 (8h)
 	OffSeasonTargetMin  int    `json:"off_season_target_min"`  // May–Dec, default 450 (7.5h)
 	RoundingMin         int    `json:"rounding_min"`           // billing increment (e.g. 6 = 0.1h)
+	StaleDays           int    `json:"stale_days"`             // open todo age before "stale"
+	DueSoonDays         int    `json:"due_soon_days"`          // days ahead that count as "due soon"
 	Timezone            string `json:"timezone"`               // IANA name, "" = server local
 }
 
 // Settings returns the owner's settings, falling back to sane defaults for any
 // key that is missing.
 func (s *Store) Settings(owner int64) (Settings, error) {
-	out := Settings{BusySeasonTargetMin: 480, OffSeasonTargetMin: 450, RoundingMin: 6}
+	out := Settings{BusySeasonTargetMin: 480, OffSeasonTargetMin: 450, RoundingMin: 6, StaleDays: 14, DueSoonDays: 2}
 	rows, err := s.db.Query(`SELECT k, v FROM settings WHERE owner_id = ?`, owner)
 	if err != nil {
 		return out, err
@@ -45,6 +47,10 @@ func (s *Store) Settings(owner int64) (Settings, error) {
 			out.OffSeasonTargetMin = atoiOr(v, out.OffSeasonTargetMin)
 		case "rounding_min":
 			out.RoundingMin = atoiOr(v, out.RoundingMin)
+		case "stale_days":
+			out.StaleDays = atoiOr(v, out.StaleDays)
+		case "due_soon_days":
+			out.DueSoonDays = atoiOr(v, out.DueSoonDays)
 		case "timezone":
 			out.Timezone = v
 		}
@@ -58,6 +64,8 @@ func (s *Store) SaveSettings(owner int64, in Settings) error {
 		"busy_season_target_min": strconv.Itoa(in.BusySeasonTargetMin),
 		"off_season_target_min":  strconv.Itoa(in.OffSeasonTargetMin),
 		"rounding_min":           strconv.Itoa(in.RoundingMin),
+		"stale_days":             strconv.Itoa(in.StaleDays),
+		"due_soon_days":          strconv.Itoa(in.DueSoonDays),
 		"timezone":               in.Timezone,
 	}
 	for k, v := range pairs {

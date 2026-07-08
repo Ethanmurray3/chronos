@@ -29,6 +29,10 @@ var ErrTimerRunning = errors.New("a timer is already running")
 // ErrNotFound is returned when a lookup by id matches no row for the owner.
 var ErrNotFound = errors.New("not found")
 
+// ErrInUse is returned when deleting something that other rows still
+// reference (e.g. a work type used by time entries).
+var ErrInUse = errors.New("in use")
+
 // Store owns the database handle.
 type Store struct {
 	db *sql.DB
@@ -56,6 +60,13 @@ func Open(path string) (*Store, error) {
 			log.Printf("sqlite close after seed failure failed: %v", cerr)
 		}
 		return nil, err
+	}
+	// Rebuild the FTS indexes from content tables — idempotent, cheap at this
+	// scale, and it backfills rows written before FTS existed.
+	for _, t := range []string{"entries_fts", "templates_fts"} {
+		if _, err := db.Exec(`INSERT INTO ` + t + `(` + t + `) VALUES ('rebuild')`); err != nil {
+			log.Printf("fts rebuild %s failed: %v", t, err)
+		}
 	}
 	return s, nil
 }
@@ -160,7 +171,35 @@ CREATE TABLE IF NOT EXISTS settings (
   k        TEXT    NOT NULL,
   v        TEXT    NOT NULL,
   PRIMARY KEY (owner_id, k)
-);`
+);
+
+-- Full-text search (external-content FTS5, kept in sync by triggers) over
+-- entry descriptions and templates. This is what makes past work findable.
+CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
+  description, content='time_entries', content_rowid='id');
+CREATE TRIGGER IF NOT EXISTS entries_fts_i AFTER INSERT ON time_entries BEGIN
+  INSERT INTO entries_fts(rowid, description) VALUES (new.id, new.description);
+END;
+CREATE TRIGGER IF NOT EXISTS entries_fts_d AFTER DELETE ON time_entries BEGIN
+  INSERT INTO entries_fts(entries_fts, rowid, description) VALUES ('delete', old.id, old.description);
+END;
+CREATE TRIGGER IF NOT EXISTS entries_fts_u AFTER UPDATE ON time_entries BEGIN
+  INSERT INTO entries_fts(entries_fts, rowid, description) VALUES ('delete', old.id, old.description);
+  INSERT INTO entries_fts(rowid, description) VALUES (new.id, new.description);
+END;
+
+CREATE VIRTUAL TABLE IF NOT EXISTS templates_fts USING fts5(
+  title, body, tags, content='templates', content_rowid='id');
+CREATE TRIGGER IF NOT EXISTS templates_fts_i AFTER INSERT ON templates BEGIN
+  INSERT INTO templates_fts(rowid, title, body, tags) VALUES (new.id, new.title, new.body, new.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS templates_fts_d AFTER DELETE ON templates BEGIN
+  INSERT INTO templates_fts(templates_fts, rowid, title, body, tags) VALUES ('delete', old.id, old.title, old.body, old.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS templates_fts_u AFTER UPDATE ON templates BEGIN
+  INSERT INTO templates_fts(templates_fts, rowid, title, body, tags) VALUES ('delete', old.id, old.title, old.body, old.tags);
+  INSERT INTO templates_fts(rowid, title, body, tags) VALUES (new.id, new.title, new.body, new.tags);
+END;`
 
 // seed creates the single user, a default tax work-type catalog, and the
 // default settings the first time the database is empty. It is idempotent.
@@ -219,6 +258,8 @@ func (s *Store) seed() error {
 		"busy_season_target_min": "480", // Jan–Apr: 8h coded per day
 		"off_season_target_min":  "450", // May–Dec: 7.5h coded per day
 		"rounding_min":           "6",   // firms bill in 0.1h (6 min) increments
+		"stale_days":             "14",  // todo age before it counts as stale
+		"due_soon_days":          "2",   // due within this window = "due soon"
 		"timezone":               "",    // "" = server local time
 	}
 	for k, v := range defaults {

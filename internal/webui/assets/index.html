@@ -20,6 +20,7 @@
       <button data-view="today" class="active">Today</button>
       <button data-view="todos">To-do</button>
       <button data-view="clients">Clients</button>
+      <button data-view="library">Library</button>
       <button data-view="reports">Reports</button>
     </nav>
     <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
@@ -75,14 +76,42 @@
           <h2 class="section-title">Clients</h2>
           <form id="client-form" class="inline-form">
             <input name="name" placeholder="Client name" required />
-            <input name="code" placeholder="Code" class="short" />
+            <input name="code" placeholder="Client #" class="short" />
             <button type="submit">Add</button>
+            <button type="button" id="client-import-btn" class="ghost-btn">Import CSV</button>
           </form>
           <div id="client-list" class="client-list"></div>
         </div>
         <div class="col">
           <h2 class="section-title" id="client-detail-title">Select a client</h2>
           <div id="client-detail" class="client-detail"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== LIBRARY ===== -->
+    <section id="view-library" class="view" hidden>
+      <h2 class="section-title">Work library</h2>
+      <div class="lib-bar">
+        <input id="lib-search" type="search" placeholder="Search everything you've coded and saved…" />
+        <button id="tpl-new" type="button" class="ghost-btn">New template</button>
+      </div>
+      <div class="split">
+        <div class="col"><div id="lib-results"></div></div>
+        <div class="col" id="tpl-editor" hidden>
+          <h2 class="section-title" id="tpl-editor-title">Template</h2>
+          <form id="tpl-form">
+            <label>Title<input name="title" required /></label>
+            <div class="tpl-row">
+              <label>Work type<select name="work_type"></select></label>
+              <label>Tags<input name="tags" placeholder="comma, separated" /></label>
+            </div>
+            <label>Body<textarea name="body" rows="14" placeholder="The reusable text — letter skeleton, step list, checklist…"></textarea></label>
+            <div class="dialog-actions">
+              <button type="button" id="tpl-delete" class="ghost-btn danger" hidden>Delete</button>
+              <button type="submit">Save</button>
+            </div>
+          </form>
         </div>
       </div>
     </section>
@@ -112,16 +141,35 @@
     <form id="settings-form" method="dialog">
       <h2>Settings</h2>
       <p class="dialog-note">Your daily standard is the hours you need to code; anything past it counts as overtime.</p>
-      <label>Busy season — Jan–Apr (hours/day)<input name="busy" type="number" step="0.1" min="0" /></label>
-      <label>Off season — May–Dec (hours/day)<input name="off" type="number" step="0.1" min="0" /></label>
-      <label>Billing increment (minutes)<input name="rounding" type="number" step="1" min="0" /></label>
-      <label>Timezone (IANA, blank = server local)<input name="timezone" placeholder="America/Toronto" /></label>
+      <div class="set-grid">
+        <label>Busy season — Jan–Apr (h/day)<input name="busy" type="number" step="0.1" min="0" /></label>
+        <label>Off season — May–Dec (h/day)<input name="off" type="number" step="0.1" min="0" /></label>
+        <label>Billing increment (minutes)<input name="rounding" type="number" step="1" min="0" /></label>
+        <label>Timezone (blank = server local)<input name="timezone" placeholder="America/Toronto" /></label>
+        <label>"Due soon" window (days)<input name="duesoon" type="number" step="1" min="0" /></label>
+        <label>Stale after (days on list)<input name="staledays" type="number" step="1" min="0" /></label>
+      </div>
+
+      <h3 class="dialog-sub">Work types</h3>
+      <p class="dialog-note">Rename, recategorize, or add your firm's billing types. Types already used by entries can't be deleted.</p>
+      <div id="wt-list" class="wt-list"></div>
+      <div class="wt-add">
+        <input id="wt-new-name" placeholder="New work type" />
+        <input id="wt-new-cat" placeholder="Category" class="short" />
+        <label class="chk"><input type="checkbox" id="wt-new-bill" checked /> Billable</label>
+        <button type="button" id="wt-add-btn">Add</button>
+        <button type="button" id="wt-import-btn" class="ghost-btn">Import CSV</button>
+      </div>
+
       <div class="dialog-actions">
         <button value="cancel" class="ghost-btn">Cancel</button>
         <button value="save" id="settings-save">Save</button>
       </div>
     </form>
   </dialog>
+
+  <input type="file" id="wt-file" accept=".csv,text/csv" hidden />
+  <input type="file" id="client-file" accept=".csv,text/csv" hidden />
 
   <div id="toast" class="toast" hidden></div>
 

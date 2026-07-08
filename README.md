@@ -34,6 +34,11 @@ The **daily standard** is the number of hours you need to code that day, and it
 doubles as the overtime line: **Remaining** counts your total coded time down
 toward it, and anything past it is **Overtime**.
 
+Nearly everything is configurable per user: seasonal targets, billing
+increment, timezone, the "due soon" window, and the stale-todo threshold live
+in settings; work types (billing types) are fully editable in the ⚙ dialog and
+importable from CSV.
+
 ## Using it
 
 - **Today** — start/stop a timer against a client and work type, or add a past
@@ -48,7 +53,13 @@ toward it, and anything past it is **Overtime**.
 - **To-do** — a task list optionally tied to a client, with due dates and a
   high-priority flag. One click (▶) starts a timer seeded from the task; rows
   show how long they've been on your list.
-- **Clients** — add clients and browse everything you've logged for each.
+- **Clients** — add clients (name + your firm's client number) and browse
+  everything you've logged for each. Bulk-load from a CSV export of your firm
+  system (`name` + `code`/`number` columns); dropdowns show the number
+  everywhere.
+- **Library** — reusable templates (letter skeletons, reorg step lists) plus
+  full-text search over *everything you've ever coded*. Save any past entry as
+  a template with one click, then polish it.
 - **Reports** — total any date range grouped by client, work type, or day, and
   export it as CSV. The same CSV shape imports back in (only `date` and
   `minutes` columns are required).

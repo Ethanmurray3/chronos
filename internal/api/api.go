@@ -37,9 +37,21 @@ func (s *Server) Routes() *http.ServeMux {
 
 	mux.HandleFunc("GET /api/v1/work-types", s.listWorkTypes)
 	mux.HandleFunc("POST /api/v1/work-types", s.createWorkType)
+	mux.HandleFunc("PUT /api/v1/work-types/{id}", s.updateWorkType)
+	mux.HandleFunc("DELETE /api/v1/work-types/{id}", s.deleteWorkType)
+	mux.HandleFunc("POST /api/v1/work-types/import", s.importWorkTypesCSV)
+
+	mux.HandleFunc("GET /api/v1/templates", s.listTemplates)
+	mux.HandleFunc("POST /api/v1/templates", s.createTemplate)
+	mux.HandleFunc("GET /api/v1/templates/{id}", s.getTemplate)
+	mux.HandleFunc("PUT /api/v1/templates/{id}", s.updateTemplate)
+	mux.HandleFunc("DELETE /api/v1/templates/{id}", s.deleteTemplate)
+	mux.HandleFunc("POST /api/v1/templates/from-entry/{id}", s.templateFromEntry)
+	mux.HandleFunc("GET /api/v1/search", s.search)
 
 	mux.HandleFunc("GET /api/v1/clients", s.listClients)
 	mux.HandleFunc("POST /api/v1/clients", s.createClient)
+	mux.HandleFunc("POST /api/v1/clients/import", s.importClientsCSV)
 	mux.HandleFunc("GET /api/v1/clients/{id}", s.getClient)
 	mux.HandleFunc("PUT /api/v1/clients/{id}", s.updateClient)
 
@@ -127,6 +139,46 @@ func (s *Server) createWorkType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, wt)
+}
+
+func (s *Server) updateWorkType(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Name     string `json:"name"`
+		Category string `json:"category"`
+		Billable bool   `json:"billable_default"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.Name == "" {
+		writeErr(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	wt, err := s.st.UpdateWorkType(currentOwner(r), id, in.Name, in.Category, in.Billable)
+	if handleLookupErr(w, err) {
+		return
+	}
+	writeJSON(w, http.StatusOK, wt)
+}
+
+func (s *Server) deleteWorkType(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	err := s.st.DeleteWorkType(currentOwner(r), id)
+	if errors.Is(err, store.ErrInUse) {
+		writeErr(w, http.StatusConflict, "this work type is used by time entries or templates; rename it instead")
+		return
+	}
+	if handleLookupErr(w, err) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ---- clients ----

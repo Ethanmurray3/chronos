@@ -165,6 +165,7 @@ function wireNav() {
     for (const v of document.querySelectorAll(".view")) v.hidden = v.id !== "view-" + currentView;
     if (currentView === "todos") initTodos();
     if (currentView === "clients") renderClients();
+    if (currentView === "library") initLibrary();
     if (currentView === "reports") initReports();
   });
 }
@@ -183,9 +184,12 @@ function renderDaybar() {
 }
 
 // ---------- today: timer ----------
+// clientLabel shows the firm's client number alongside the name everywhere.
+const clientLabel = (c) => (c.code ? c.code + " · " : "") + c.name;
+
 function clientOptions(sel) {
   return `<option value="">— client —</option>` +
-    state.clients.map((c) => `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${esc(c.name)}</option>`).join("");
+    state.clients.map((c) => `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${esc(clientLabel(c))}</option>`).join("");
 }
 function workTypeOptions(sel) {
   return `<option value="">— work type —</option>` +
@@ -312,18 +316,28 @@ function renderEntries() {
         <div class="what">${e.work_type_name ? `<span class="badge ${e.billable ? "" : "nb"}">${esc(e.work_type_name)}</span>` : ""}${esc(e.description || "")}</div>
       </div>
       <div class="dur">${hours(e.effective_min)}</div>
-      <div class="actions"><button data-act="del" title="Delete">✕</button></div>
+      <div class="actions">
+        <button data-act="tpl" title="Save as template">⧉</button>
+        <button data-act="del" title="Delete">✕</button>
+      </div>
     </div>`).join("");
 }
 
 async function onEntriesClick(e) {
-  const btn = e.target.closest("button[data-act='del']");
+  const btn = e.target.closest("button[data-act]");
   if (!btn) return;
   const id = btn.closest(".entry").dataset.id;
-  if (!confirm("Delete this entry?")) return;
   try {
-    await DEL("/api/v1/time-entries/" + id);
-    await refreshToday();
+    if (btn.dataset.act === "del") {
+      if (!confirm("Delete this entry?")) return;
+      await DEL("/api/v1/time-entries/" + id);
+      await refreshToday();
+    } else if (btn.dataset.act === "tpl") {
+      const t = await POST("/api/v1/templates/from-entry/" + id);
+      document.querySelector('#tabs button[data-view="library"]').click();
+      openTplEditor(t);
+      toast("Saved to library — polish it into a template");
+    }
   } catch (err) {
     toast(err.message, true);
   }
@@ -539,7 +553,10 @@ function wireSettings() {
     f.busy.value = (s.busy_season_target_min / 60).toFixed(1);
     f.off.value = (s.off_season_target_min / 60).toFixed(1);
     f.rounding.value = s.rounding_min;
+    f.duesoon.value = s.due_soon_days;
+    f.staledays.value = s.stale_days;
     f.timezone.value = s.timezone || "";
+    renderWtManager();
     dlg.showModal();
   });
   $("#settings-form").addEventListener("submit", async (e) => {
@@ -551,6 +568,8 @@ function wireSettings() {
         busy_season_target_min: Math.round(parseFloat(f.busy.value) * 60) || 0,
         off_season_target_min: Math.round(parseFloat(f.off.value) * 60) || 0,
         rounding_min: parseInt(f.rounding.value, 10) || 0,
+        due_soon_days: parseInt(f.duesoon.value, 10) || 0,
+        stale_days: parseInt(f.staledays.value, 10) || 0,
         timezone: f.timezone.value.trim(),
       });
       dlg.close();
@@ -562,6 +581,237 @@ function wireSettings() {
   });
 }
 
+// ---------- work-type manager (inside settings) ----------
+function renderWtManager() {
+  $("#wt-list").innerHTML = state.workTypes.map((w) => `
+    <div class="wt-row" data-id="${w.id}">
+      <input class="wt-name" value="${esc(w.name)}" aria-label="Work type name" />
+      <input class="wt-cat short" value="${esc(w.category)}" aria-label="Category" />
+      <label class="chk"><input type="checkbox" class="wt-bill" ${w.billable_default ? "checked" : ""} /> Billable</label>
+      <button type="button" data-act="wt-del" title="Delete">✕</button>
+    </div>`).join("");
+}
+
+async function saveWtRow(row) {
+  const id = row.dataset.id;
+  try {
+    await PUT("/api/v1/work-types/" + id, {
+      name: row.querySelector(".wt-name").value.trim(),
+      category: row.querySelector(".wt-cat").value.trim(),
+      billable_default: row.querySelector(".wt-bill").checked,
+    });
+    await reloadRefs();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function wireWtManager() {
+  $("#wt-list").addEventListener("change", (e) => {
+    const row = e.target.closest(".wt-row");
+    if (row) saveWtRow(row);
+  });
+  $("#wt-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest('button[data-act="wt-del"]');
+    if (!btn) return;
+    const row = btn.closest(".wt-row");
+    try {
+      await DEL("/api/v1/work-types/" + row.dataset.id);
+      await reloadRefs();
+      renderWtManager();
+    } catch (err) {
+      toast(err.message, true); // e.g. 409: in use by entries
+    }
+  });
+  $("#wt-add-btn").addEventListener("click", async () => {
+    const name = $("#wt-new-name").value.trim();
+    if (!name) return toast("Enter a name", true);
+    try {
+      await POST("/api/v1/work-types", {
+        name,
+        category: $("#wt-new-cat").value.trim(),
+        billable_default: $("#wt-new-bill").checked,
+      });
+      $("#wt-new-name").value = "";
+      $("#wt-new-cat").value = "";
+      await reloadRefs();
+      renderWtManager();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+
+// ---------- CSV imports (clients + work types) ----------
+function wireImport(btnSel, fileSel, url, after) {
+  $(btnSel).addEventListener("click", () => $(fileSel).click());
+  $(fileSel).addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      const text = await file.text();
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "text/csv" }, body: text });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const probs = (data.problems || []).length;
+      toast(`Imported: ${data.created} new, ${data.updated} updated${probs ? `, ${probs} problems` : ""}`, probs > 0);
+      await reloadRefs();
+      after?.();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+
+// ---------- library ----------
+let editingTplId = null;
+
+function workTypeOptionsFor(sel) {
+  return `<option value="">— work type —</option>` +
+    state.workTypes.map((w) => `<option value="${w.id}" ${w.id === sel ? "selected" : ""}>${esc(w.name)}</option>`).join("");
+}
+
+async function initLibrary() {
+  const q = $("#lib-search").value.trim();
+  if (q) return runLibSearch(q);
+  try {
+    const { templates } = await GET("/api/v1/templates");
+    renderLibList(templates);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function renderLibList(templates) {
+  const box = $("#lib-results");
+  if (!templates.length) {
+    box.innerHTML = `<p class="empty">No templates yet. Save a good entry as a template (⧉ on any entry), or start one fresh.</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="lib-group">Templates</div>` + templates.map((t) => `
+    <div class="lib-hit" data-kind="template" data-id="${t.id}">
+      <div class="lib-title">${esc(t.title)}</div>
+      <div class="lib-meta">${t.work_type_name ? `<span class="badge">${esc(t.work_type_name)}</span>` : ""}${esc(t.tags || "")}</div>
+    </div>`).join("");
+}
+
+async function runLibSearch(q) {
+  try {
+    const { hits } = await GET("/api/v1/search?q=" + encodeURIComponent(q));
+    const box = $("#lib-results");
+    if (!hits.length) {
+      box.innerHTML = `<p class="empty">Nothing matches "${esc(q)}".</p>`;
+      return;
+    }
+    const tpl = hits.filter((h) => h.kind === "template");
+    const ent = hits.filter((h) => h.kind === "entry");
+    // snippet comes from the server with <b> marks around matches; everything
+    // else is escaped server-side data, but escape defensively anyway.
+    const safeSnippet = (s) => esc(s).replaceAll("&lt;b&gt;", "<b>").replaceAll("&lt;/b&gt;", "</b>");
+    const row = (h) => `
+      <div class="lib-hit" data-kind="${h.kind}" data-id="${h.id}">
+        <div class="lib-title">${esc(h.title)}${h.date ? `<span class="lib-date">${h.date}</span>` : ""}</div>
+        <div class="lib-snippet">${safeSnippet(h.snippet)}</div>
+        <div class="lib-meta">
+          ${h.client_name ? `<span class="who">${esc(h.client_name)}</span>` : ""}
+          ${h.kind === "entry" ? `<button type="button" class="mini" data-act="promote">Save as template</button>` : ""}
+        </div>
+      </div>`;
+    box.innerHTML =
+      (tpl.length ? `<div class="lib-group">Templates</div>` + tpl.map(row).join("") : "") +
+      (ent.length ? `<div class="lib-group">Past work</div>` + ent.map(row).join("") : "");
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function openTplEditor(t) {
+  editingTplId = t ? t.id : null;
+  const ed = $("#tpl-editor");
+  ed.hidden = false;
+  $("#tpl-editor-title").textContent = t ? "Edit template" : "New template";
+  $("#tpl-delete").hidden = !t;
+  const f = $("#tpl-form");
+  f.title.value = t?.title || "";
+  f.tags.value = t?.tags || "";
+  f.body.value = t?.body || "";
+  f.work_type.innerHTML = workTypeOptionsFor(t?.work_type_id);
+  f.title.focus();
+}
+
+async function onLibClick(e) {
+  const promote = e.target.closest('button[data-act="promote"]');
+  if (promote) {
+    const id = promote.closest(".lib-hit").dataset.id;
+    try {
+      const t = await POST("/api/v1/templates/from-entry/" + id);
+      toast("Saved to library");
+      openTplEditor(t);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
+  const hit = e.target.closest('.lib-hit[data-kind="template"]');
+  if (hit) {
+    try {
+      openTplEditor(await GET("/api/v1/templates/" + hit.dataset.id));
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+}
+
+async function submitTpl(e) {
+  e.preventDefault();
+  const f = e.target;
+  const body = {
+    title: f.title.value.trim(),
+    tags: f.tags.value.trim(),
+    body: f.body.value,
+    work_type_id: intOrNull(f.work_type.value),
+  };
+  try {
+    const t = editingTplId
+      ? await PUT("/api/v1/templates/" + editingTplId, body)
+      : await POST("/api/v1/templates", body);
+    editingTplId = t.id;
+    toast("Template saved");
+    await initLibrary();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function deleteTpl() {
+  if (!editingTplId || !confirm("Delete this template?")) return;
+  try {
+    await DEL("/api/v1/templates/" + editingTplId);
+    editingTplId = null;
+    $("#tpl-editor").hidden = true;
+    await initLibrary();
+    toast("Template deleted");
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function wireLibrary() {
+  let t;
+  $("#lib-search").addEventListener("input", (e) => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const q = e.target.value.trim();
+      q ? runLibSearch(q) : initLibrary();
+    }, 250);
+  });
+  $("#lib-results").addEventListener("click", onLibClick);
+  $("#tpl-new").addEventListener("click", () => openTplEditor(null));
+  $("#tpl-form").addEventListener("submit", submitTpl);
+  $("#tpl-delete").addEventListener("click", deleteTpl);
+}
+
 // ---------- form wiring ----------
 function wireForms() {
   $("#manual-form").addEventListener("submit", submitManual);
@@ -571,6 +821,10 @@ function wireForms() {
   wireDayNav();
   $("#attention").addEventListener("click", () =>
     document.querySelector('#tabs button[data-view="todos"]').click());
+  wireWtManager();
+  wireLibrary();
+  wireImport("#client-import-btn", "#client-file", "/api/v1/clients/import", renderClients);
+  wireImport("#wt-import-btn", "#wt-file", "/api/v1/work-types/import", renderWtManager);
   $("#client-form").addEventListener("submit", submitClient);
   $("#client-list").addEventListener("click", (e) => {
     const row = e.target.closest(".client-row");

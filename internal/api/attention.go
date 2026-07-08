@@ -8,13 +8,6 @@ import (
 	"chronos/internal/store"
 )
 
-// The attention thresholds. Constants for now; promote to settings if anyone
-// wants different nagging.
-const (
-	staleDays   = 14 // open this long without a due date passing = stale
-	dueSoonDays = 2  // due within this many days = due-soon
-)
-
 // attentionItem is an open todo plus the reasons it deserves attention.
 // Reasons, most severe first: overdue, due-today, due-soon, high-priority,
 // stale. An item can carry several.
@@ -47,9 +40,15 @@ func (s *Server) attention(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// Thresholds are per-owner settings (stale_days, due_soon_days).
+	set, err := s.st.Settings(owner)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	soonEnd := today
 	if t, err := time.Parse("2006-01-02", today); err == nil {
-		soonEnd = t.AddDate(0, 0, dueSoonDays).Format("2006-01-02")
+		soonEnd = t.AddDate(0, 0, set.DueSoonDays).Format("2006-01-02")
 	}
 
 	now := time.Now().Unix()
@@ -70,7 +69,7 @@ func (s *Server) attention(w http.ResponseWriter, r *http.Request) {
 		if td.Priority > 0 {
 			reasons = append(reasons, "high-priority")
 		}
-		if age >= staleDays {
+		if age >= int64(set.StaleDays) {
 			reasons = append(reasons, "stale")
 		}
 		if len(reasons) > 0 {

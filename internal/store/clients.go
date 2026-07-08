@@ -93,6 +93,30 @@ func (s *Store) UpdateClient(owner, id int64, name, code, notes, status string) 
 	return s.Client(owner, id)
 }
 
+// UpsertClient matches an incoming client by code first (the firm's client
+// number is the authoritative key), then by name, updating whichever half is
+// missing/changed — otherwise it creates the client. Returns true when a new
+// row was created. Used by CSV import.
+func (s *Store) UpsertClient(owner int64, name, code string) (bool, error) {
+	var id int64
+	if code != "" {
+		if err := s.db.QueryRow(
+			`SELECT id FROM clients WHERE owner_id = ? AND code = ? COLLATE NOCASE`,
+			owner, code).Scan(&id); err == nil {
+			_, err := s.db.Exec(`UPDATE clients SET name = ? WHERE id = ?`, name, id)
+			return false, err
+		}
+	}
+	if err := s.db.QueryRow(
+		`SELECT id FROM clients WHERE owner_id = ? AND name = ? COLLATE NOCASE`,
+		owner, name).Scan(&id); err == nil {
+		_, err := s.db.Exec(`UPDATE clients SET code = ? WHERE id = ?`, code, id)
+		return false, err
+	}
+	_, err := s.CreateClient(owner, name, code, "")
+	return true, err
+}
+
 // EnsureClient returns the id of the owner's active client with the given
 // name (case-insensitive), creating it if none exists. Used by CSV import.
 func (s *Store) EnsureClient(owner int64, name string) (int64, error) {

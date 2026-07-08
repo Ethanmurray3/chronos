@@ -175,6 +175,80 @@ func TestClientScopingAndArchive(t *testing.T) {
 	}
 }
 
+func TestSearchAndTemplates(t *testing.T) {
+	s := openTest(t)
+	c, err := s.CreateClient(SeedOwner, "Acme Holdings", "1234567", "")
+	if err != nil {
+		t.Fatalf("CreateClient: %v", err)
+	}
+	e, err := s.CreateEntry(SeedOwner, EntryInput{
+		ClientID:    &c.ID,
+		Description: "s.85 rollover instruction letter to counsel",
+		DurationMin: 60,
+	})
+	if err != nil {
+		t.Fatalf("CreateEntry: %v", err)
+	}
+
+	// Entry text is searchable, with prefix matching on the last term.
+	hits, err := s.Search(SeedOwner, "rollover instruc", 20)
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(hits) != 1 || hits[0].Kind != "entry" || hits[0].ID != e.ID {
+		t.Fatalf("search hits = %+v, want the one entry", hits)
+	}
+
+	// Promote to a template; both should now match.
+	tpl, err := s.CreateTemplateFromEntry(SeedOwner, e.ID)
+	if err != nil {
+		t.Fatalf("CreateTemplateFromEntry: %v", err)
+	}
+	if tpl.Body != e.Description || tpl.SourceEntryID == nil || *tpl.SourceEntryID != e.ID {
+		t.Errorf("template not seeded from entry: %+v", tpl)
+	}
+	hits, _ = s.Search(SeedOwner, "rollover", 20)
+	if len(hits) != 2 || hits[0].Kind != "template" {
+		t.Fatalf("after promote, hits = %+v, want template then entry", hits)
+	}
+
+	// Editing the template keeps the FTS index in sync via triggers.
+	if _, err := s.UpdateTemplate(SeedOwner, tpl.ID, TemplateInput{
+		Title: "Reorg letter skeleton", Body: "butterfly reorganization steps", Tags: "reorg",
+	}); err != nil {
+		t.Fatalf("UpdateTemplate: %v", err)
+	}
+	hits, _ = s.Search(SeedOwner, "butterfly", 20)
+	if len(hits) != 1 || hits[0].Kind != "template" {
+		t.Errorf("updated body not searchable: %+v", hits)
+	}
+	hits, _ = s.Search(SeedOwner, "instruction", 20)
+	if len(hits) != 1 || hits[0].Kind != "entry" {
+		t.Errorf("old template text still indexed or entry lost: %+v", hits)
+	}
+
+	// FTS syntax characters must not break the query.
+	if _, err := s.Search(SeedOwner, `"AND (rollover OR`, 20); err != nil {
+		t.Errorf("hostile query errored: %v", err)
+	}
+}
+
+func TestWorkTypeDeleteGuard(t *testing.T) {
+	s := openTest(t)
+	wts, _ := s.WorkTypes(SeedOwner)
+	used := wts[0].ID
+	if _, err := s.CreateEntry(SeedOwner, EntryInput{WorkTypeID: &used, DurationMin: 30}); err != nil {
+		t.Fatalf("CreateEntry: %v", err)
+	}
+	if err := s.DeleteWorkType(SeedOwner, used); err != ErrInUse {
+		t.Errorf("delete of used work type = %v, want ErrInUse", err)
+	}
+	unused := wts[1].ID
+	if err := s.DeleteWorkType(SeedOwner, unused); err != nil {
+		t.Errorf("delete of unused work type: %v", err)
+	}
+}
+
 // ---- helpers ----
 
 func mustEntry(t *testing.T, s *Store, dur int64, billable *bool) {

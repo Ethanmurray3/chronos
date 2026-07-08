@@ -147,6 +147,110 @@ func (s *Server) importCSV(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// csvTable parses a CSV body into a header-index map and data rows, writing a
+// 400 and returning ok=false when it is empty or malformed.
+func csvTable(w http.ResponseWriter, r *http.Request) (col map[string]int, rows [][]string, ok bool) {
+	cr := csv.NewReader(r.Body)
+	cr.FieldsPerRecord = -1
+	records, err := cr.ReadAll()
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "could not parse CSV: "+err.Error())
+		return nil, nil, false
+	}
+	if len(records) < 2 {
+		writeErr(w, http.StatusBadRequest, "CSV has no data rows")
+		return nil, nil, false
+	}
+	col = map[string]int{}
+	for i, name := range records[0] {
+		col[strings.ToLower(strings.TrimSpace(name))] = i
+	}
+	return col, records[1:], true
+}
+
+func csvField(col map[string]int, row []string, names ...string) string {
+	for _, n := range names {
+		if i, ok := col[n]; ok && i < len(row) {
+			return strings.TrimSpace(row[i])
+		}
+	}
+	return ""
+}
+
+// importClientsCSV upserts clients from a firm-system export. Columns: name
+// (required) and the client number under any of: code, number, client number,
+// client code. Matching prefers the number, then the name.
+func (s *Server) importClientsCSV(w http.ResponseWriter, r *http.Request) {
+	owner := currentOwner(r)
+	col, rows, ok := csvTable(w, r)
+	if !ok {
+		return
+	}
+	if _, has := col["name"]; !has {
+		writeErr(w, http.StatusBadRequest, "CSV must have a 'name' column")
+		return
+	}
+	created, updated := 0, 0
+	var problems []string
+	for n, row := range rows {
+		name := csvField(col, row, "name", "client name", "client")
+		code := csvField(col, row, "code", "number", "client number", "client code", "client no")
+		if name == "" {
+			problems = append(problems, fmt.Sprintf("line %d: missing name", n+2))
+			continue
+		}
+		isNew, err := s.st.UpsertClient(owner, name, code)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("line %d: %v", n+2, err))
+			continue
+		}
+		if isNew {
+			created++
+		} else {
+			updated++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"created": created, "updated": updated, "problems": problems})
+}
+
+// importWorkTypesCSV upserts work types (billing types). Columns: name
+// (required), category, billable (truthy/falsey; default billable).
+func (s *Server) importWorkTypesCSV(w http.ResponseWriter, r *http.Request) {
+	owner := currentOwner(r)
+	col, rows, ok := csvTable(w, r)
+	if !ok {
+		return
+	}
+	if _, has := col["name"]; !has {
+		writeErr(w, http.StatusBadRequest, "CSV must have a 'name' column")
+		return
+	}
+	created, updated := 0, 0
+	var problems []string
+	for n, row := range rows {
+		name := csvField(col, row, "name", "work type", "billing type", "type")
+		if name == "" {
+			problems = append(problems, fmt.Sprintf("line %d: missing name", n+2))
+			continue
+		}
+		billable := true
+		if b := parseBillable(csvField(col, row, "billable")); b != nil {
+			billable = *b
+		}
+		isNew, err := s.st.UpsertWorkType(owner, name, csvField(col, row, "category"), billable)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("line %d: %v", n+2, err))
+			continue
+		}
+		if isNew {
+			created++
+		} else {
+			updated++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"created": created, "updated": updated, "problems": problems})
+}
+
 // parseBillable maps common truthy/falsey spellings; empty → nil (inherit the
 // work type default).
 func parseBillable(s string) *bool {
