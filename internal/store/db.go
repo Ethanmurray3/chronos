@@ -198,6 +198,7 @@ func (s *Store) seed() error {
 		{"Tax research", "planning", true},
 		{"Client meeting", "advisory", true},
 		{"Emails & calls", "advisory", true},
+		{"General", "internal", false},
 		{"Admin", "internal", false},
 		{"Professional development", "internal", false},
 	}
@@ -215,10 +216,10 @@ func (s *Store) seed() error {
 	}
 
 	defaults := map[string]string{
-		"daily_target_min": "450", // 7.5h billable target
-		"workday_min":      "480", // 8h before it counts as overtime
-		"rounding_min":     "6",   // firms bill in 0.1h (6 min) increments
-		"timezone":         "",    // "" = server local time
+		"busy_season_target_min": "480", // Jan–Apr: 8h coded per day
+		"off_season_target_min":  "450", // May–Dec: 7.5h coded per day
+		"rounding_min":           "6",   // firms bill in 0.1h (6 min) increments
+		"timezone":               "",    // "" = server local time
 	}
 	for k, v := range defaults {
 		if _, err := s.db.Exec(

@@ -25,15 +25,22 @@ Flags / environment:
 | `--db`   | `CHRONOS_DB`   | `./chronos.db` | Path to the SQLite file        |
 
 On first run Chronos seeds one user, a starter tax work-type catalog (CRA
-correspondence, T1, T2, reorganizations, form filing, bookkeeping, …), and
-sensible defaults (7.5 h billable target, 8 h workday, 6-minute billing
-increment). Adjust these under the ⚙ settings dialog.
+correspondence, T1, T2, reorganizations, form filing, bookkeeping, General, …),
+and sensible defaults (6-minute billing increment and a **seasonal daily
+standard**: 8 h/day in busy season Jan–Apr, 7.5 h/day off season May–Dec).
+Adjust these under the ⚙ settings dialog.
+
+The **daily standard** is the number of hours you need to code that day, and it
+doubles as the overtime line: **Remaining** counts your total coded time down
+toward it, and anything past it is **Overtime**.
 
 ## Using it
 
 - **Today** — start/stop a timer against a client and work type, or add a past
-  entry. The header tracks Worked · Billable · Target · **Remaining** ·
-  **Overtime** live.
+  entry. The header tracks Worked · Billable · **Non-billable** · **Remaining**
+  (of the seasonal target) · **Overtime**, live.
+- **To-do** — a task list optionally tied to a client, with due dates and a
+  high-priority flag. One click (▶) starts a timer seeded from the task.
 - **Clients** — add clients and browse everything you've logged for each.
 - **Reports** — total any date range grouped by client, work type, or day, and
   export it as CSV. The same CSV shape imports back in (only `date` and
@@ -70,7 +77,8 @@ go run ./cmd/chronos --db /tmp/chronos.db
 
 ## Status
 
-v1 (M1) covers the daily-use core: clients, work-type catalog, timer + manual
-entries, the live day report, range reports, and CSV import/export. Planned
-next: to-dos & day planning, a searchable template/work library, an MCP server,
-real multi-user auth, and self-hosting behind Authentik on CloudOlympus.
+M1 covers the daily-use core: clients, work-type catalog, timer + manual
+entries, the live day report, range reports, and CSV import/export. M2 adds the
+to-do list (with start-timer-from-task) and seasonal daily targets with a
+non-billable breakdown. Planned next: a searchable template/work library, an MCP
+server, real multi-user auth, and self-hosting behind Authentik on CloudOlympus.

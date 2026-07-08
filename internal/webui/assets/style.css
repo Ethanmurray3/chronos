@@ -117,6 +117,7 @@ main { max-width: 900px; margin: 0 auto; padding: clamp(1rem, 4vw, 2rem); }
 .stat .label { font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-faint); }
 .stat .value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; margin-top: .15rem; }
 .stat .value.small { font-size: 1.15rem; }
+.stat .sub { font-size: .7rem; color: var(--ink-faint); margin-top: .1rem; font-family: var(--mono); }
 .stat.accent .value { color: var(--accent); }
 .stat.good .value { color: var(--good); }
 .stat.warn .value { color: var(--warn); }
@@ -145,7 +146,6 @@ main { max-width: 900px; margin: 0 auto; padding: clamp(1rem, 4vw, 2rem); }
 .timer-meta .who { font-weight: 600; font-size: 1.05rem; }
 .timer-meta .what { color: var(--ink-soft); }
 
-form { display: flex; }
 .start-form { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: .6rem; align-items: end; }
 @media (max-width: 620px) { .start-form { grid-template-columns: 1fr 1fr; } .start-form .grow { grid-column: 1 / -1; } }
 
@@ -234,6 +234,36 @@ button.stop { background: var(--danger); color: #fff; }
 .report-out td.num, .report-out th.num { text-align: right; font-family: var(--mono); }
 .report-out tfoot td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: none; }
 
+/* ---- to-do ---- */
+.todo-form { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.todo-form .grow { flex: 1; min-width: 160px; }
+.todo-form .chk { flex-direction: row; align-items: center; gap: .35rem; font-size: .85rem; }
+.todo-list { display: flex; flex-direction: column; gap: .4rem; }
+.todo-list.done { margin-top: .5rem; opacity: .8; }
+.todo {
+  display: grid; grid-template-columns: auto 1fr auto; gap: .8rem; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: .65rem .85rem;
+}
+.todo.hi { border-left: 3px solid var(--accent); }
+.todo .check {
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 2px solid var(--line); background: none; color: var(--good);
+  font-size: .8rem; line-height: 1; display: grid; place-items: center; flex: none;
+}
+.todo .check:hover { border-color: var(--good); }
+.todo.is-done .check { background: var(--good); border-color: var(--good); color: #fff; }
+.todo.is-done .todo-title { text-decoration: line-through; color: var(--ink-faint); }
+.todo-title { font-weight: 600; }
+.todo-title .flag { color: var(--accent); font-weight: 800; margin-right: .35rem; }
+.todo-meta { font-size: .8rem; color: var(--ink-faint); display: flex; gap: .6rem; margin-top: .1rem; }
+.todo-meta .who { color: var(--ink-soft); }
+.todo-meta .due.over { color: var(--danger); font-weight: 600; }
+.todo-actions { display: flex; gap: .25rem; }
+.todo-actions button { background: none; color: var(--ink-faint); border: 1px solid transparent; padding: .25rem .45rem; font-size: .82rem; }
+.todo-actions button:hover { color: var(--accent); border-color: var(--line); }
+.todo-done-wrap summary { cursor: pointer; font-size: .82rem; color: var(--ink-soft); padding: .8rem 0 .4rem; }
+
 /* ---- dialog ---- */
 dialog {
   border: 1px solid var(--line); border-radius: var(--radius);
@@ -242,6 +272,7 @@ dialog {
 }
 dialog::backdrop { background: rgba(20, 18, 12, .45); }
 dialog h2 { margin-top: 0; font-family: var(--serif); }
+.dialog-note { font-size: .8rem; color: var(--ink-faint); margin: -.5rem 0 1rem; }
 #settings-form label { margin-bottom: .9rem; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .5rem; }
 

@@ -40,7 +40,7 @@ function toast(msg, isErr = false) {
 }
 
 // ---------- state ----------
-const state = { settings: null, clients: [], workTypes: [], timer: null, day: null };
+const state = { settings: null, clients: [], workTypes: [], timer: null, day: null, todos: [] };
 
 // ---------- boot ----------
 async function boot() {
@@ -90,6 +90,7 @@ function wireNav() {
     currentView = btn.dataset.view;
     for (const b of $("#tabs").children) b.classList.toggle("active", b === btn);
     for (const v of document.querySelectorAll(".view")) v.hidden = v.id !== "view-" + currentView;
+    if (currentView === "todos") initTodos();
     if (currentView === "clients") renderClients();
     if (currentView === "reports") initReports();
   });
@@ -98,13 +99,13 @@ function wireNav() {
 // ---------- today: day bar ----------
 function renderDaybar() {
   const d = state.day;
-  const pct = d.target_min > 0 ? Math.min(100, (d.billable_min / d.target_min) * 100) : 0;
+  const pct = d.target_min > 0 ? Math.min(100, (d.worked_min / d.target_min) * 100) : 0;
   $("#daybar").innerHTML = `
-    <div class="stat"><div class="label">Worked</div><div class="value">${hours(d.worked_min)}</div></div>
-    <div class="stat accent"><div class="label">Billable</div><div class="value">${hours(d.billable_min)}</div>
+    <div class="stat"><div class="label">Worked</div><div class="value">${hours(d.worked_min)}</div>
       <div class="progress"><span style="width:${pct}%"></span></div></div>
-    <div class="stat"><div class="label">Target</div><div class="value small">${hours(d.target_min)}</div></div>
-    <div class="stat good"><div class="label">Remaining</div><div class="value small">${hours(d.remaining_min)}</div></div>
+    <div class="stat accent"><div class="label">Billable</div><div class="value">${hours(d.billable_min)}</div></div>
+    <div class="stat"><div class="label">Non-billable</div><div class="value small">${hours(d.non_billable_min)}</div></div>
+    <div class="stat good"><div class="label">Remaining</div><div class="value small">${hours(d.remaining_min)}</div><div class="sub">of ${hours(d.target_min)}</div></div>
     <div class="stat ${d.overtime_min > 0 ? "warn" : ""}"><div class="label">Overtime</div><div class="value small">${hours(d.overtime_min)}</div></div>`;
 }
 
@@ -303,6 +304,97 @@ async function submitClient(e) {
   }
 }
 
+// ---------- to-do ----------
+async function initTodos() {
+  $("#todo-client").innerHTML = clientOptions();
+  await loadTodos();
+}
+
+async function loadTodos() {
+  const { todos } = await GET("/api/v1/todos?include_done=1");
+  state.todos = todos;
+  renderTodos();
+}
+
+function renderTodos() {
+  const open = state.todos.filter((t) => t.status !== "done");
+  const done = state.todos.filter((t) => t.status === "done");
+  const list = $("#todo-list");
+  list.innerHTML = open.length
+    ? open.map(todoRow).join("")
+    : `<p class="empty">Nothing on your list. Add something above.</p>`;
+  const wrap = $("#todo-done-wrap");
+  if (done.length) {
+    wrap.hidden = false;
+    wrap.querySelector("summary").textContent = `Completed (${done.length})`;
+    $("#todo-done").innerHTML = done.map(todoRow).join("");
+  } else {
+    wrap.hidden = true;
+  }
+}
+
+function todoRow(t) {
+  const due = t.due_date
+    ? `<span class="due ${overdue(t.due_date) && t.status !== "done" ? "over" : ""}">${fmtDue(t.due_date)}</span>`
+    : "";
+  return `<div class="todo ${t.status === "done" ? "is-done" : ""} ${t.priority ? "hi" : ""}" data-id="${t.id}">
+    <button class="check" data-act="toggle" title="${t.status === "done" ? "Reopen" : "Mark done"}">${t.status === "done" ? "✓" : ""}</button>
+    <div class="todo-main">
+      <div class="todo-title">${t.priority && t.status !== "done" ? `<span class="flag">!</span>` : ""}${esc(t.title)}</div>
+      <div class="todo-meta">${t.client_name ? `<span class="who">${esc(t.client_name)}</span>` : ""}${due}</div>
+    </div>
+    <div class="todo-actions">
+      ${t.status !== "done" ? `<button data-act="start" title="Start a timer for this">▶</button>` : ""}
+      <button data-act="del" title="Delete">✕</button>
+    </div>
+  </div>`;
+}
+
+const overdue = (d) => d < todayISO();
+const fmtDue = (d) => new Date(d + "T00:00:00").toLocaleDateString([], { month: "short", day: "numeric" });
+
+async function submitTodo(e) {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    await POST("/api/v1/todos", {
+      title: f.title.value.trim(),
+      client_id: intOrNull(f.client.value),
+      due_date: f.due.value || null,
+      priority: f.priority.checked ? 1 : 0,
+    });
+    f.reset();
+    await loadTodos();
+    toast("Added to your list");
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function onTodoClick(e) {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const id = Number(btn.closest(".todo").dataset.id);
+  const act = btn.dataset.act;
+  try {
+    if (act === "toggle") {
+      const t = state.todos.find((x) => x.id === id);
+      await POST(`/api/v1/todos/${id}/done`, { done: t.status !== "done" });
+      await loadTodos();
+    } else if (act === "del") {
+      await DEL("/api/v1/todos/" + id);
+      await loadTodos();
+    } else if (act === "start") {
+      await POST(`/api/v1/todos/${id}/start`);
+      await refreshToday();
+      document.querySelector('#tabs button[data-view="today"]').click();
+      toast("Timer started from to-do");
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 // ---------- reports ----------
 function initReports() {
   const f = $("#report-form");
@@ -362,8 +454,8 @@ function wireSettings() {
   $("#settings-btn").addEventListener("click", () => {
     const s = state.settings;
     const f = $("#settings-form");
-    f.target.value = (s.daily_target_min / 60).toFixed(1);
-    f.workday.value = (s.workday_min / 60).toFixed(1);
+    f.busy.value = (s.busy_season_target_min / 60).toFixed(1);
+    f.off.value = (s.off_season_target_min / 60).toFixed(1);
     f.rounding.value = s.rounding_min;
     f.timezone.value = s.timezone || "";
     dlg.showModal();
@@ -374,8 +466,8 @@ function wireSettings() {
     const f = e.target;
     try {
       state.settings = await PUT("/api/v1/settings", {
-        daily_target_min: Math.round(parseFloat(f.target.value) * 60) || 0,
-        workday_min: Math.round(parseFloat(f.workday.value) * 60) || 0,
+        busy_season_target_min: Math.round(parseFloat(f.busy.value) * 60) || 0,
+        off_season_target_min: Math.round(parseFloat(f.off.value) * 60) || 0,
         rounding_min: parseInt(f.rounding.value, 10) || 0,
         timezone: f.timezone.value.trim(),
       });
@@ -392,6 +484,8 @@ function wireSettings() {
 function wireForms() {
   $("#manual-form").addEventListener("submit", submitManual);
   $("#entries").addEventListener("click", onEntriesClick);
+  $("#todo-form").addEventListener("submit", submitTodo);
+  $("#view-todos").addEventListener("click", onTodoClick);
   $("#client-form").addEventListener("submit", submitClient);
   $("#client-list").addEventListener("click", (e) => {
     const row = e.target.closest(".client-row");

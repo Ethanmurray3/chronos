@@ -79,32 +79,49 @@ func TestOneRunningTimer(t *testing.T) {
 
 func TestDayReportMath(t *testing.T) {
 	s := openTest(t)
-	// 100 min billable, 50 min non-billable, 7 min billable (rounds to 12).
-	mustEntry(t, s, 100, boolp(true))
-	mustEntry(t, s, 50, boolp(false))
-	mustEntry(t, s, 7, boolp(true))
+	// 100 min billable, 50 min non-billable, 7 min billable (rounds to 12),
+	// all on a fixed off-season day so the run date can't affect the result.
+	day := timeUnix(t, "2026-07-07", 9)
+	mustEntryAt(t, s, day, 100, boolp(true))
+	mustEntryAt(t, s, day, 50, boolp(false))
+	mustEntryAt(t, s, day, 7, boolp(true))
 
-	rep, err := s.DayReport(SeedOwner, "")
+	rep, err := s.DayReport(SeedOwner, "2026-07-07") // July → off-season, 450
 	if err != nil {
 		t.Fatalf("DayReport: %v", err)
 	}
 	assertEq(t, "worked", rep.WorkedMin, 157)
 	assertEq(t, "billable", rep.BillableMin, 107)
-	assertEq(t, "billed", rep.BilledMin, 114) // 102 + 12
-	assertEq(t, "target", rep.TargetMin, 450)
-	assertEq(t, "remaining", rep.RemainingMin, 343) // 450 - 107
-	assertEq(t, "overtime", rep.OvertimeMin, 0)     // 157 < 480
+	assertEq(t, "non-billable", rep.NonBillableMin, 50)
+	assertEq(t, "billed", rep.BilledMin, 114)       // 102 + 12
+	assertEq(t, "target", rep.TargetMin, 450)       // off-season
+	assertEq(t, "remaining", rep.RemainingMin, 293) // 450 - 157 (total worked)
+	assertEq(t, "overtime", rep.OvertimeMin, 0)     // 157 < 450
 }
 
-func TestDayReportOvertime(t *testing.T) {
+func TestSeasonalTargetAndOvertime(t *testing.T) {
 	s := openTest(t)
-	mustEntry(t, s, 500, boolp(true)) // > 480 workday
-	rep, err := s.DayReport(SeedOwner, "")
+	// One 500-minute entry, reported on both a busy-season and off-season day.
+	// (started_at date drives which season applies.)
+	busyStart := timeUnix(t, "2026-02-10", 9)
+	offStart := timeUnix(t, "2026-07-10", 9)
+	mustEntryAt(t, s, busyStart, 500, boolp(true))
+	mustEntryAt(t, s, offStart, 500, boolp(true))
+
+	busy, err := s.DayReport(SeedOwner, "2026-02-10")
 	if err != nil {
-		t.Fatalf("DayReport: %v", err)
+		t.Fatalf("DayReport busy: %v", err)
 	}
-	assertEq(t, "overtime", rep.OvertimeMin, 20)   // 500 - 480
-	assertEq(t, "remaining", rep.RemainingMin, 0)  // target exceeded → clamped
+	assertEq(t, "busy target", busy.TargetMin, 480)   // Feb → busy season
+	assertEq(t, "busy overtime", busy.OvertimeMin, 20) // 500 - 480
+
+	off, err := s.DayReport(SeedOwner, "2026-07-10")
+	if err != nil {
+		t.Fatalf("DayReport off: %v", err)
+	}
+	assertEq(t, "off target", off.TargetMin, 450)    // July → off season
+	assertEq(t, "off overtime", off.OvertimeMin, 50) // 500 - 450
+	assertEq(t, "off remaining", off.RemainingMin, 0)
 }
 
 func TestDayBoundaryTimezone(t *testing.T) {
@@ -114,7 +131,7 @@ func TestDayBoundaryTimezone(t *testing.T) {
 	}
 	s := openTest(t)
 	if err := s.SaveSettings(SeedOwner, Settings{
-		DailyTargetMin: 450, WorkdayMin: 480, RoundingMin: 6, Timezone: "America/Toronto",
+		BusySeasonTargetMin: 480, OffSeasonTargetMin: 450, RoundingMin: 6, Timezone: "America/Toronto",
 	}); err != nil {
 		t.Fatalf("SaveSettings: %v", err)
 	}
@@ -167,6 +184,26 @@ func mustEntry(t *testing.T, s *Store, dur int64, billable *bool) {
 	}); err != nil {
 		t.Fatalf("CreateEntry(%d): %v", dur, err)
 	}
+}
+
+func mustEntryAt(t *testing.T, s *Store, started, dur int64, billable *bool) {
+	t.Helper()
+	if _, err := s.CreateEntry(SeedOwner, EntryInput{
+		Description: "x", StartedAt: started, DurationMin: dur, Billable: billable,
+	}); err != nil {
+		t.Fatalf("CreateEntry at %d: %v", started, err)
+	}
+}
+
+// timeUnix returns the unix seconds for date (YYYY-MM-DD) at the given hour in
+// the server's local timezone.
+func timeUnix(t *testing.T, date string, hour int) int64 {
+	t.Helper()
+	tm, err := time.ParseInLocation("2006-01-02", date, time.Local)
+	if err != nil {
+		t.Fatalf("parse %q: %v", date, err)
+	}
+	return tm.Unix() + int64(hour)*3600
 }
 
 func assertEq(t *testing.T, name string, got, want int64) {

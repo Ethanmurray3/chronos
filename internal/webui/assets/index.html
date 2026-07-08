@@ -18,6 +18,7 @@
     </div>
     <nav class="tabs" id="tabs">
       <button data-view="today" class="active">Today</button>
+      <button data-view="todos">To-do</button>
       <button data-view="clients">Clients</button>
       <button data-view="reports">Reports</button>
     </nav>
@@ -38,6 +39,23 @@
 
       <h2 class="section-title">Today's entries</h2>
       <div id="entries" class="entries"></div>
+    </section>
+
+    <!-- ===== TO-DO ===== -->
+    <section id="view-todos" class="view" hidden>
+      <h2 class="section-title">To-do</h2>
+      <form id="todo-form" class="todo-form">
+        <input name="title" placeholder="What needs doing?" required class="grow" />
+        <select name="client" id="todo-client"></select>
+        <input type="date" name="due" title="Due date" />
+        <label class="chk"><input type="checkbox" name="priority" /> High</label>
+        <button type="submit">Add</button>
+      </form>
+      <div id="todo-list" class="todo-list"></div>
+      <details id="todo-done-wrap" class="todo-done-wrap" hidden>
+        <summary>Completed</summary>
+        <div id="todo-done" class="todo-list done"></div>
+      </details>
     </section>
 
     <!-- ===== CLIENTS ===== -->
@@ -83,8 +101,9 @@
   <dialog id="settings-dialog">
     <form id="settings-form" method="dialog">
       <h2>Settings</h2>
-      <label>Daily billable target (hours)<input name="target" type="number" step="0.1" min="0" /></label>
-      <label>Standard workday before overtime (hours)<input name="workday" type="number" step="0.1" min="0" /></label>
+      <p class="dialog-note">Your daily standard is the hours you need to code; anything past it counts as overtime.</p>
+      <label>Busy season — Jan–Apr (hours/day)<input name="busy" type="number" step="0.1" min="0" /></label>
+      <label>Off season — May–Dec (hours/day)<input name="off" type="number" step="0.1" min="0" /></label>
       <label>Billing increment (minutes)<input name="rounding" type="number" step="1" min="0" /></label>
       <label>Timezone (IANA, blank = server local)<input name="timezone" placeholder="America/Toronto" /></label>
       <div class="dialog-actions">

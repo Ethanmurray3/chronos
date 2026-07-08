@@ -5,18 +5,29 @@ import (
 	"time"
 )
 
-// Settings are the per-owner knobs that drive the day math.
+// busySeasonStartMonth / busySeasonEndMonth define the tax "busy season"
+// (January–April). Days in this window use the busy-season target; the rest of
+// the year uses the off-season target. Hardcoded for now — a common Canadian
+// tax calendar — but easy to promote to a setting later.
+const (
+	busySeasonStartMonth = 1
+	busySeasonEndMonth   = 4
+)
+
+// Settings are the per-owner knobs that drive the day math. The daily standard
+// (target) is seasonal and doubles as the overtime threshold: hours coded past
+// the standard for that day are overtime.
 type Settings struct {
-	DailyTargetMin int    `json:"daily_target_min"` // billable target for a day
-	WorkdayMin     int    `json:"workday_min"`      // worked minutes before overtime
-	RoundingMin    int    `json:"rounding_min"`     // billing increment (e.g. 6 = 0.1h)
-	Timezone       string `json:"timezone"`         // IANA name, "" = server local
+	BusySeasonTargetMin int    `json:"busy_season_target_min"` // Jan–Apr, default 480 (8h)
+	OffSeasonTargetMin  int    `json:"off_season_target_min"`  // May–Dec, default 450 (7.5h)
+	RoundingMin         int    `json:"rounding_min"`           // billing increment (e.g. 6 = 0.1h)
+	Timezone            string `json:"timezone"`               // IANA name, "" = server local
 }
 
-// Settings returns the owner's settings, falling back to sane defaults for
-// any key that is missing.
+// Settings returns the owner's settings, falling back to sane defaults for any
+// key that is missing.
 func (s *Store) Settings(owner int64) (Settings, error) {
-	out := Settings{DailyTargetMin: 450, WorkdayMin: 480, RoundingMin: 6}
+	out := Settings{BusySeasonTargetMin: 480, OffSeasonTargetMin: 450, RoundingMin: 6}
 	rows, err := s.db.Query(`SELECT k, v FROM settings WHERE owner_id = ?`, owner)
 	if err != nil {
 		return out, err
@@ -28,10 +39,10 @@ func (s *Store) Settings(owner int64) (Settings, error) {
 			return out, err
 		}
 		switch k {
-		case "daily_target_min":
-			out.DailyTargetMin = atoiOr(v, out.DailyTargetMin)
-		case "workday_min":
-			out.WorkdayMin = atoiOr(v, out.WorkdayMin)
+		case "busy_season_target_min":
+			out.BusySeasonTargetMin = atoiOr(v, out.BusySeasonTargetMin)
+		case "off_season_target_min":
+			out.OffSeasonTargetMin = atoiOr(v, out.OffSeasonTargetMin)
 		case "rounding_min":
 			out.RoundingMin = atoiOr(v, out.RoundingMin)
 		case "timezone":
@@ -44,10 +55,10 @@ func (s *Store) Settings(owner int64) (Settings, error) {
 // SaveSettings upserts every field of the owner's settings.
 func (s *Store) SaveSettings(owner int64, in Settings) error {
 	pairs := map[string]string{
-		"daily_target_min": strconv.Itoa(in.DailyTargetMin),
-		"workday_min":      strconv.Itoa(in.WorkdayMin),
-		"rounding_min":     strconv.Itoa(in.RoundingMin),
-		"timezone":         in.Timezone,
+		"busy_season_target_min": strconv.Itoa(in.BusySeasonTargetMin),
+		"off_season_target_min":  strconv.Itoa(in.OffSeasonTargetMin),
+		"rounding_min":           strconv.Itoa(in.RoundingMin),
+		"timezone":               in.Timezone,
 	}
 	for k, v := range pairs {
 		if _, err := s.db.Exec(
@@ -60,8 +71,17 @@ func (s *Store) SaveSettings(owner int64, in Settings) error {
 	return nil
 }
 
-// location resolves the owner's configured timezone, defaulting to the
-// server's local time when unset or invalid.
+// TargetMinForMonth returns the daily standard (in minutes) for a calendar
+// month: the busy-season target during Jan–Apr, otherwise the off-season one.
+func (s Settings) TargetMinForMonth(month time.Month) int {
+	if int(month) >= busySeasonStartMonth && int(month) <= busySeasonEndMonth {
+		return s.BusySeasonTargetMin
+	}
+	return s.OffSeasonTargetMin
+}
+
+// location resolves the owner's configured timezone, defaulting to the server's
+// local time when unset or invalid.
 func (s Settings) location() *time.Location {
 	if s.Timezone == "" {
 		return time.Local

@@ -48,6 +48,13 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("PUT /api/v1/time-entries/{id}", s.updateEntry)
 	mux.HandleFunc("DELETE /api/v1/time-entries/{id}", s.deleteEntry)
 
+	mux.HandleFunc("GET /api/v1/todos", s.listTodos)
+	mux.HandleFunc("POST /api/v1/todos", s.createTodo)
+	mux.HandleFunc("PUT /api/v1/todos/{id}", s.updateTodo)
+	mux.HandleFunc("DELETE /api/v1/todos/{id}", s.deleteTodo)
+	mux.HandleFunc("POST /api/v1/todos/{id}/done", s.setTodoDone)
+	mux.HandleFunc("POST /api/v1/todos/{id}/start", s.startFromTodo)
+
 	mux.HandleFunc("GET /api/v1/timer", s.getTimer)
 	mux.HandleFunc("POST /api/v1/timer/start", s.startTimer)
 	mux.HandleFunc("POST /api/v1/timer/stop", s.stopTimer)

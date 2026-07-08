@@ -6,16 +6,19 @@ import (
 )
 
 // DayReport is the live snapshot the Today view is built on. All figures are
-// in minutes.
+// in minutes. The daily standard (TargetMin) is seasonal and doubles as the
+// overtime line: remaining counts total coded time down toward it, and
+// overtime is total coded time beyond it.
 type DayReport struct {
-	Date        string  `json:"date"`         // YYYY-MM-DD
-	WorkedMin   int64   `json:"worked_min"`   // all time logged (incl. running)
-	BillableMin int64   `json:"billable_min"` // the billable share, unrounded
-	BilledMin   int64   `json:"billed_min"`   // billable share rounded per entry
-	TargetMin   int64   `json:"target_min"`   // billable target for the day
-	RemainingMin int64  `json:"remaining_min"` // max(0, target - billable)
-	OvertimeMin int64   `json:"overtime_min"` // max(0, worked - workday)
-	Entries     []Entry `json:"entries"`
+	Date           string  `json:"date"`             // YYYY-MM-DD
+	WorkedMin      int64   `json:"worked_min"`       // all time coded (incl. running)
+	BillableMin    int64   `json:"billable_min"`     // the billable share, unrounded
+	NonBillableMin int64   `json:"non_billable_min"` // the non-billable share
+	BilledMin      int64   `json:"billed_min"`       // billable share rounded per entry
+	TargetMin      int64   `json:"target_min"`       // seasonal daily standard = OT line
+	RemainingMin   int64   `json:"remaining_min"`    // max(0, target - worked)
+	OvertimeMin    int64   `json:"overtime_min"`     // max(0, worked - target)
+	Entries        []Entry `json:"entries"`
 }
 
 // DayReport aggregates a single calendar day (in the owner's timezone). An
@@ -35,16 +38,19 @@ func (s *Store) DayReport(owner int64, date string) (DayReport, error) {
 		return DayReport{}, err
 	}
 
-	rep := DayReport{Date: isoDate, TargetMin: int64(set.DailyTargetMin), Entries: entries}
+	month := time.Unix(start, 0).In(loc).Month()
+	rep := DayReport{Date: isoDate, TargetMin: int64(set.TargetMinForMonth(month)), Entries: entries}
 	for _, e := range entries {
 		rep.WorkedMin += e.EffectiveMin
 		if e.Billable {
 			rep.BillableMin += e.EffectiveMin
 			rep.BilledMin += roundUpTo(e.EffectiveMin, int64(set.RoundingMin))
+		} else {
+			rep.NonBillableMin += e.EffectiveMin
 		}
 	}
-	rep.RemainingMin = max64(0, rep.TargetMin-rep.BillableMin)
-	rep.OvertimeMin = max64(0, rep.WorkedMin-int64(set.WorkdayMin))
+	rep.RemainingMin = max64(0, rep.TargetMin-rep.WorkedMin)
+	rep.OvertimeMin = max64(0, rep.WorkedMin-rep.TargetMin)
 	return rep, nil
 }
 
