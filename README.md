@@ -38,9 +38,16 @@ toward it, and anything past it is **Overtime**.
 
 - **Today** — start/stop a timer against a client and work type, or add a past
   entry. The header tracks Worked · Billable · **Non-billable** · **Remaining**
-  (of the seasonal target) · **Overtime**, live.
+  (of the seasonal target) · **Overtime**, live. Arrow through days or jump to
+  any date — yesterday or a random Wednesday two years ago — and the day bar
+  recomputes with that day's seasonal standard.
+- **Needs attention** — a panel on Today that surfaces what matters from your
+  list: overdue items, due today/soon, high priority, and anything sitting
+  untouched for 14+ days. Served by `GET /api/v1/attention`, so agents can ask
+  the same question.
 - **To-do** — a task list optionally tied to a client, with due dates and a
-  high-priority flag. One click (▶) starts a timer seeded from the task.
+  high-priority flag. One click (▶) starts a timer seeded from the task; rows
+  show how long they've been on your list.
 - **Clients** — add clients and browse everything you've logged for each.
 - **Reports** — total any date range grouped by client, work type, or day, and
   export it as CSV. The same CSV shape imports back in (only `date` and

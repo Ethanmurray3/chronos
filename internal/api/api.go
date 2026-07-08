@@ -48,6 +48,8 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("PUT /api/v1/time-entries/{id}", s.updateEntry)
 	mux.HandleFunc("DELETE /api/v1/time-entries/{id}", s.deleteEntry)
 
+	mux.HandleFunc("GET /api/v1/attention", s.attention)
+
 	mux.HandleFunc("GET /api/v1/todos", s.listTodos)
 	mux.HandleFunc("POST /api/v1/todos", s.createTodo)
 	mux.HandleFunc("PUT /api/v1/todos/{id}", s.updateTodo)

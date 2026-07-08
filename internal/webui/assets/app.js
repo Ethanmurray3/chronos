@@ -25,9 +25,14 @@ const DEL = (p) => api("DELETE", p);
 const hours = (min) => (min / 60).toFixed(1) + "h";
 const clock = (unix) =>
   new Date(unix * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-const todayISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fmtISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayISO = () => fmtISO(new Date());
+// shiftISO moves an ISO date by n days; noon anchor dodges DST edges.
+const shiftISO = (iso, days) => {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return fmtISO(d);
 };
 
 function toast(msg, isErr = false) {
@@ -40,7 +45,10 @@ function toast(msg, isErr = false) {
 }
 
 // ---------- state ----------
-const state = { settings: null, clients: [], workTypes: [], timer: null, day: null, todos: [] };
+const state = {
+  settings: null, clients: [], workTypes: [], timer: null, day: null, todos: [],
+  viewDate: todayISO(), // the day the Today view is showing
+};
 
 // ---------- boot ----------
 async function boot() {
@@ -70,15 +78,80 @@ async function reloadRefs() {
 
 async function refreshToday() {
   const [day, timer] = await Promise.all([
-    GET("/api/v1/reports/day"),
+    GET("/api/v1/reports/day?date=" + state.viewDate),
     GET("/api/v1/timer"),
   ]);
   state.day = day;
   state.timer = timer.running ? timer.entry : null;
+  renderDayNav();
   renderDaybar();
   renderTimer();
   renderManualForm();
   renderEntries();
+  renderAttention();
+}
+
+// ---------- today: day navigation ----------
+function dayLabel() {
+  const today = todayISO();
+  if (state.viewDate === today) return "Today";
+  if (state.viewDate === shiftISO(today, -1)) return "Yesterday";
+  return new Date(state.viewDate + "T12:00:00").toLocaleDateString([], {
+    weekday: "short", year: "numeric", month: "short", day: "numeric",
+  });
+}
+
+function renderDayNav() {
+  $("#day-label").textContent = dayLabel();
+  $("#day-pick").value = state.viewDate;
+  $("#day-today").hidden = state.viewDate === todayISO();
+}
+
+function gotoDate(iso) {
+  state.viewDate = iso;
+  refreshToday().catch((e) => toast(e.message, true));
+}
+
+function wireDayNav() {
+  $("#day-prev").addEventListener("click", () => gotoDate(shiftISO(state.viewDate, -1)));
+  $("#day-next").addEventListener("click", () => gotoDate(shiftISO(state.viewDate, 1)));
+  $("#day-today").addEventListener("click", () => gotoDate(todayISO()));
+  $("#day-pick").addEventListener("change", (e) => {
+    if (e.target.value) gotoDate(e.target.value);
+  });
+}
+
+// ---------- today: attention panel ----------
+const REASON_LABEL = {
+  overdue: "Overdue",
+  "due-today": "Due today",
+  "due-soon": "Due soon",
+  "high-priority": "High priority",
+  stale: "Stale",
+};
+
+async function renderAttention() {
+  let items;
+  try {
+    ({ items } = await GET("/api/v1/attention"));
+  } catch {
+    return; // panel is a nicety; never block the day view on it
+  }
+  const box = $("#attention");
+  if (!items || items.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const row = (it) => `
+    <div class="att-row" data-id="${it.id}">
+      <div class="att-title">${esc(it.title)}${it.client_name ? `<span class="att-client">${esc(it.client_name)}</span>` : ""}</div>
+      <div class="att-badges">${it.reasons.map((r) =>
+        `<span class="rbadge r-${r}">${r === "stale" ? `${it.age_days}d on list` : REASON_LABEL[r]}</span>`).join("")}
+      </div>
+    </div>`;
+  const extra = items.length > 5 ? `<div class="att-more">+${items.length - 5} more on your list →</div>` : "";
+  box.innerHTML = `<div class="att-head">Needs attention</div>` + items.slice(0, 5).map(row).join("") + extra;
 }
 
 // ---------- navigation ----------
@@ -185,7 +258,7 @@ async function stopTimer() {
 // ---------- today: manual entry ----------
 function renderManualForm() {
   $("#manual-form").innerHTML = `
-    <label>Date<input type="date" name="date" value="${todayISO()}" /></label>
+    <label>Date<input type="date" name="date" value="${state.viewDate}" /></label>
     <label>Client<select name="client">${clientOptions()}</select></label>
     <label>Work type<select name="work_type">${workTypeOptions()}</select></label>
     <label class="grow">Description<input name="description" placeholder="Notes" /></label>
@@ -222,9 +295,13 @@ async function submitManual(e) {
 // ---------- today: entries list ----------
 function renderEntries() {
   const box = $("#entries");
+  const viewingToday = state.viewDate === todayISO();
+  $("#entries-title").textContent = viewingToday ? "Today's entries" : `Entries — ${dayLabel()}`;
   const entries = state.day.entries.filter((e) => !e.running);
   if (entries.length === 0) {
-    box.innerHTML = `<p class="empty">No entries yet today. Start a timer or add one above.</p>`;
+    box.innerHTML = viewingToday
+      ? `<p class="empty">No entries yet today. Start a timer or add one above.</p>`
+      : `<p class="empty">Nothing coded on this day.</p>`;
     return;
   }
   box.innerHTML = entries.map((e) => `
@@ -314,6 +391,7 @@ async function loadTodos() {
   const { todos } = await GET("/api/v1/todos?include_done=1");
   state.todos = todos;
   renderTodos();
+  renderAttention(); // todo changes can change what needs attention
 }
 
 function renderTodos() {
@@ -337,11 +415,15 @@ function todoRow(t) {
   const due = t.due_date
     ? `<span class="due ${overdue(t.due_date) && t.status !== "done" ? "over" : ""}">${fmtDue(t.due_date)}</span>`
     : "";
+  const ageDays = Math.floor((Date.now() / 1000 - t.created_at) / 86400);
+  const age = t.status !== "done" && ageDays >= 1
+    ? `<span class="age ${ageDays >= 14 ? "stale" : ""}">${ageDays}d on list</span>`
+    : "";
   return `<div class="todo ${t.status === "done" ? "is-done" : ""} ${t.priority ? "hi" : ""}" data-id="${t.id}">
     <button class="check" data-act="toggle" title="${t.status === "done" ? "Reopen" : "Mark done"}">${t.status === "done" ? "✓" : ""}</button>
     <div class="todo-main">
       <div class="todo-title">${t.priority && t.status !== "done" ? `<span class="flag">!</span>` : ""}${esc(t.title)}</div>
-      <div class="todo-meta">${t.client_name ? `<span class="who">${esc(t.client_name)}</span>` : ""}${due}</div>
+      <div class="todo-meta">${t.client_name ? `<span class="who">${esc(t.client_name)}</span>` : ""}${due}${age}</div>
     </div>
     <div class="todo-actions">
       ${t.status !== "done" ? `<button data-act="start" title="Start a timer for this">▶</button>` : ""}
@@ -486,6 +568,9 @@ function wireForms() {
   $("#entries").addEventListener("click", onEntriesClick);
   $("#todo-form").addEventListener("submit", submitTodo);
   $("#view-todos").addEventListener("click", onTodoClick);
+  wireDayNav();
+  $("#attention").addEventListener("click", () =>
+    document.querySelector('#tabs button[data-view="todos"]').click());
   $("#client-form").addEventListener("submit", submitClient);
   $("#client-list").addEventListener("click", (e) => {
     const row = e.target.closest(".client-row");

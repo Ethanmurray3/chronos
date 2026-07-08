@@ -80,6 +80,16 @@ func (s Settings) TargetMinForMonth(month time.Month) int {
 	return s.OffSeasonTargetMin
 }
 
+// TodayISO returns today's date (YYYY-MM-DD) in the owner's timezone — the
+// reference point for due-date comparisons.
+func (s *Store) TodayISO(owner int64) (string, error) {
+	set, err := s.Settings(owner)
+	if err != nil {
+		return "", err
+	}
+	return time.Now().In(set.location()).Format("2006-01-02"), nil
+}
+
 // location resolves the owner's configured timezone, defaulting to the server's
 // local time when unset or invalid.
 func (s Settings) location() *time.Location {

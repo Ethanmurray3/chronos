@@ -40,6 +40,9 @@
 
 * { box-sizing: border-box; }
 
+/* The hidden attribute must always win, even over display rules on classes. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: var(--sans);
@@ -105,6 +108,45 @@ main { max-width: 900px; margin: 0 auto; padding: clamp(1rem, 4vw, 2rem); }
   font-size: .78rem; text-transform: uppercase; letter-spacing: .1em;
   color: var(--ink-faint); margin: 1.75rem 0 .75rem; font-weight: 600;
 }
+
+/* ---- day navigation ---- */
+.day-nav { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; }
+.day-label {
+  font-family: var(--serif); font-size: 1.25rem; font-weight: 600;
+  min-width: 7.5rem;
+}
+.day-nav input[type="date"] { font-size: .85rem; padding: .35rem .5rem; color: var(--ink-soft); }
+.day-nav .ghost-btn { padding: .35rem .8rem; font-size: .82rem; margin-left: auto; }
+
+/* ---- attention panel ---- */
+.attention {
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--warn); border-radius: var(--radius);
+  padding: .9rem 1.1rem; margin-bottom: 1.25rem; cursor: pointer;
+}
+.attention:hover { border-color: var(--warn); }
+.att-head {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--warn); font-weight: 700; margin-bottom: .55rem;
+}
+.att-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  padding: .35rem 0; border-top: 1px solid var(--line);
+}
+.att-row:first-of-type { border-top: none; }
+.att-title { font-size: .92rem; font-weight: 600; }
+.att-client { font-weight: 400; color: var(--ink-faint); margin-left: .5rem; font-size: .82rem; }
+.att-badges { display: flex; gap: .3rem; flex: none; }
+.rbadge {
+  font-size: .68rem; font-weight: 700; padding: .12rem .5rem; border-radius: 999px;
+  border: 1px solid transparent;
+}
+.rbadge.r-overdue { background: var(--danger); color: #fff; }
+.rbadge.r-due-today { background: var(--warn); color: #fff; }
+.rbadge.r-due-soon { color: var(--warn); border-color: var(--warn); }
+.rbadge.r-high-priority { color: var(--accent); border-color: var(--accent); }
+.rbadge.r-stale { color: var(--ink-faint); border-color: var(--line); }
+.att-more { font-size: .8rem; color: var(--ink-faint); padding-top: .45rem; }
 
 /* ---- day bar ---- */
 .daybar {
@@ -259,6 +301,8 @@ button.stop { background: var(--danger); color: #fff; }
 .todo-meta { font-size: .8rem; color: var(--ink-faint); display: flex; gap: .6rem; margin-top: .1rem; }
 .todo-meta .who { color: var(--ink-soft); }
 .todo-meta .due.over { color: var(--danger); font-weight: 600; }
+.todo-meta .age { color: var(--ink-faint); }
+.todo-meta .age.stale { color: var(--warn); font-weight: 600; }
 .todo-actions { display: flex; gap: .25rem; }
 .todo-actions button { background: none; color: var(--ink-faint); border: 1px solid transparent; padding: .25rem .45rem; font-size: .82rem; }
 .todo-actions button:hover { color: var(--accent); border-color: var(--line); }

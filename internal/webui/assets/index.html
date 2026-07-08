@@ -28,16 +28,26 @@
   <main id="app">
     <!-- ===== TODAY ===== -->
     <section id="view-today" class="view">
+      <div class="day-nav">
+        <button id="day-prev" class="icon-btn" title="Previous day" aria-label="Previous day">‹</button>
+        <div class="day-label" id="day-label">Today</div>
+        <input type="date" id="day-pick" aria-label="Jump to date" />
+        <button id="day-next" class="icon-btn" title="Next day" aria-label="Next day">›</button>
+        <button id="day-today" class="ghost-btn" hidden>Back to today</button>
+      </div>
+
       <div class="daybar" id="daybar"></div>
+
+      <div id="attention" class="attention" hidden></div>
 
       <div class="timer-card" id="timer-card"></div>
 
       <details class="manual" id="manual">
-        <summary>Add a past entry</summary>
+        <summary>Add an entry</summary>
         <form id="manual-form" class="manual-form"></form>
       </details>
 
-      <h2 class="section-title">Today's entries</h2>
+      <h2 class="section-title" id="entries-title">Today's entries</h2>
       <div id="entries" class="entries"></div>
     </section>
 
