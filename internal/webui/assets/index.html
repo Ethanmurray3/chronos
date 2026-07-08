@@ -4,6 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chronos</title>
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    const savedTheme = localStorage.getItem("chronos-theme");
+    if (savedTheme === "light" || savedTheme === "dark") {
+      document.documentElement.dataset.theme = savedTheme;
+    }
+  </script>
   <link rel="stylesheet" href="/style.css" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='none' stroke='%23b8860f' stroke-width='6'/%3E%3Cpath d='M50 26v26l18 10' fill='none' stroke='%23b8860f' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E" />
 </head>
@@ -49,6 +56,10 @@
     </button>
 
     <div class="side-foot">
+      <button id="theme-btn" class="nav-ghost" title="Switch theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></svg>
+        <span>Theme: <b id="theme-label">System</b></span>
+      </button>
       <button id="settings-btn" class="nav-ghost">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="15" cy="7" r="2" fill="var(--surface)"/><circle cx="8" cy="12" r="2" fill="var(--surface)"/><circle cx="17" cy="17" r="2" fill="var(--surface)"/></svg>
         <span>Settings</span>

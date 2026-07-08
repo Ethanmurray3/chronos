@@ -60,6 +60,7 @@ const state = {
 
 // ---------- boot ----------
 async function boot() {
+  wireTheme();
   wireNav();
   wireSettings();
   wireForms();
@@ -892,6 +893,29 @@ function wireLibrary() {
   $("#tpl-new").addEventListener("click", () => openTplEditor(null));
   $("#tpl-form").addEventListener("submit", submitTpl);
   $("#tpl-delete").addEventListener("click", deleteTpl);
+}
+
+// ---------- theme toggle ----------
+const THEME_KEY = "chronos-theme";
+
+function applyTheme(mode) {
+  const root = document.documentElement;
+  if (mode === "light" || mode === "dark") {
+    root.dataset.theme = mode;
+  } else {
+    delete root.dataset.theme;
+  }
+  $("#theme-label").textContent = { light: "Light", dark: "Dark" }[mode] || "System";
+}
+
+function wireTheme() {
+  applyTheme(localStorage.getItem(THEME_KEY) || "system");
+  $("#theme-btn").addEventListener("click", () => {
+    const cur = localStorage.getItem(THEME_KEY) || "system";
+    const next = cur === "system" ? "light" : cur === "light" ? "dark" : "system";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
 }
 
 // ---------- form wiring ----------

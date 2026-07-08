@@ -1,69 +1,95 @@
 /* ============================================================
-   Chronos — the modern ledger.
-   A professional timekeeping instrument for accountants: warm
-   paper and ink, brass accents, ledger hairlines, tabular
-   numerals, and accounting's double rule above every total.
-   Dark mode is the office after hours. System-local fonts only —
-   the app ships as one self-contained binary.
+   Chronos — CloudOlympus edition.
+   Friendly modern-SaaS structure (white cards, soft shadows,
+   rounded corners) wearing the CloudOlympus palette: night-blue
+   grounds, gold accents, marble text. Light mode is clean
+   marble-white; dark mode is the Sanctum after hours.
+   Theme: follows the OS by default; [data-theme] on <html>
+   (set by the in-app toggle) overrides in both directions.
+   System-local fonts only — one self-contained binary.
    ============================================================ */
 
 :root {
-  /* paper & ink */
-  --bg: #f4f1e9;
-  --surface: #fdfcf7;
-  --surface-2: #eee9dc;
-  --ink: #211e17;
-  --ink-2: #5c564a;
-  --ink-3: #98917f;
-  --line: #e2dbc9;
-  --line-strong: #c7bda3;
+  /* daylight: cool near-white with night-tinted ink */
+  --bg: #f4f5f8;
+  --surface: #ffffff;
+  --surface-2: #eef0f4;
+  --ink: #1a2033;
+  --ink-2: #555d75;
+  --ink-3: #8d94a8;
+  --line: #e4e7ee;
+  --line-strong: #cfd4e0;
 
-  /* brass */
-  --brass: #96690b;
-  --brass-bright: #b8860f;
-  --brass-wash: rgba(150, 105, 11, 0.09);
-  --brass-ink: #fffdf5; /* text on brass */
+  /* gold (the CloudOlympus accent) */
+  --gold: #8a6d14;         /* deep gold — readable as text on light */
+  --gold-bright: #c9a227;  /* fills, bars, highlights */
+  --gold-wash: rgba(201, 162, 39, 0.13);
+  --gold-ink: #ffffff;     /* text on gold buttons */
 
   /* semantics */
-  --good: #2e6b4f;
-  --warn: #a8541f;
-  --danger: #a63a2e;
-  --danger-wash: rgba(166, 58, 46, 0.08);
+  --good: #1e7d51;
+  --warn: #b35c12;
+  --danger: #c03a3a;
+  --danger-wash: rgba(192, 58, 58, 0.08);
 
-  --radius: 10px;
-  --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(46, 38, 20, 0.05);
-  --shadow: 0 1px 2px rgba(46, 38, 20, 0.06), 0 10px 28px rgba(46, 38, 20, 0.07);
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(26, 32, 51, 0.05);
+  --shadow: 0 1px 2px rgba(26, 32, 51, 0.05), 0 10px 28px rgba(26, 32, 51, 0.08);
 
   --serif: "Iowan Old Style", "Palatino Nova", Palatino, "Book Antiqua", Georgia, serif;
   --sans: "Avenir Next", Avenir, "Segoe UI", Seravek, "Helvetica Neue", sans-serif;
   --mono: "SF Mono", ui-monospace, Menlo, "Cascadia Mono", Consolas, monospace;
 }
 
+/* night mode: the Sanctum palette (night blues, gold, marble) */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #171511;
-    --surface: #201d17;
-    --surface-2: #1b1913;
-    --ink: #ece5d3;
-    --ink-2: #aaa190;
-    --ink-3: #6f6857;
-    --line: #302b21;
-    --line-strong: #4a4231;
+  :root:not([data-theme="light"]) {
+    --bg: #0a0e1e;
+    --surface: #111731;
+    --surface-2: #070b16;
+    --ink: #e9e4d6;
+    --ink-2: #a9a494;
+    --ink-3: #70778c;
+    --line: #1c2440;
+    --line-strong: #2e3860;
 
-    --brass: #d9a437;
-    --brass-bright: #e7b64e;
-    --brass-wash: rgba(217, 164, 55, 0.11);
-    --brass-ink: #1d1608;
+    --gold: #c9a227;
+    --gold-bright: #e8c76f;
+    --gold-wash: rgba(201, 162, 39, 0.13);
+    --gold-ink: #1c1503;
 
-    --good: #6cae8c;
-    --warn: #d98e4f;
-    --danger: #d96c5c;
-    --danger-wash: rgba(217, 108, 92, 0.12);
+    --good: #5cba8a;
+    --warn: #d99a55;
+    --danger: #e37067;
+    --danger-wash: rgba(227, 112, 103, 0.12);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.4);
   }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0e1e;
+  --surface: #111731;
+  --surface-2: #070b16;
+  --ink: #e9e4d6;
+  --ink-2: #a9a494;
+  --ink-3: #70778c;
+  --line: #1c2440;
+  --line-strong: #2e3860;
+
+  --gold: #c9a227;
+  --gold-bright: #e8c76f;
+  --gold-wash: rgba(201, 162, 39, 0.13);
+  --gold-ink: #1c1503;
+
+  --good: #5cba8a;
+  --warn: #d99a55;
+  --danger: #e37067;
+  --danger-wash: rgba(227, 112, 103, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 * { box-sizing: border-box; }
@@ -82,18 +108,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* paper grain — barely-there texture over everything */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-::selection { background: var(--brass-wash); color: var(--ink); }
+::selection { background: var(--gold-wash); color: var(--ink); }
 
 /* ---------------- sidebar ---------------- */
 .side {
@@ -114,14 +129,14 @@ body::before {
 .brand-mark {
   width: 34px; height: 34px; flex: none;
   border-radius: 50%;
-  border: 2.5px solid var(--brass);
+  border: 2.5px solid var(--gold);
   position: relative;
 }
 .brand-mark::after {
   content: "";
   position: absolute; left: 50%; top: 20%;
   width: 2.5px; height: 42%;
-  background: var(--brass);
+  background: var(--gold);
   border-radius: 2px;
   transform-origin: bottom center;
   transform: translateX(-50%) rotate(38deg);
@@ -162,8 +177,8 @@ body::before {
 .nav button svg, .nav-ghost svg { width: 18px; height: 18px; flex: none; }
 .nav button:hover, .nav-ghost:hover { background: var(--surface); color: var(--ink); }
 .nav button.active {
-  background: var(--brass-wash);
-  color: var(--brass);
+  background: var(--gold-wash);
+  color: var(--gold);
   font-weight: 600;
 }
 .nav button.active::before {
@@ -171,7 +186,7 @@ body::before {
   position: absolute;
   left: -0.9rem; top: 22%;
   width: 3px; height: 56%;
-  background: var(--brass);
+  background: var(--gold);
   border-radius: 0 2px 2px 0;
 }
 
@@ -184,13 +199,13 @@ body::before {
   padding: 0.55rem 0.7rem;
   font: inherit;
   text-align: left;
-  background: var(--brass-wash);
+  background: var(--gold-wash);
   border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
   transition: border-color 140ms ease;
 }
-.side-timer:hover { border-color: var(--brass); }
+.side-timer:hover { border-color: var(--gold); }
 .st-text { display: flex; flex-direction: column; min-width: 0; }
 #side-timer-label {
   font-size: 0.78rem;
@@ -202,7 +217,7 @@ body::before {
   font-family: var(--mono);
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--brass);
+  color: var(--gold);
   font-variant-numeric: tabular-nums;
 }
 .pulse-dot {
@@ -304,7 +319,7 @@ body::before {
 }
 .stat .value.small { font-size: 1.24rem; margin-top: 0.38rem; }
 .stat .sub { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-3); margin-top: 0.12rem; }
-.stat.accent .value { color: var(--brass); }
+.stat.accent .value { color: var(--gold); }
 .stat.good .value { color: var(--good); }
 .stat.warn .value { color: var(--warn); }
 .progress {
@@ -316,7 +331,7 @@ body::before {
 }
 .progress > span {
   display: block; height: 100%;
-  background: linear-gradient(90deg, var(--brass), var(--brass-bright));
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
   border-radius: 2px;
   transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -364,7 +379,7 @@ body::before {
 .rbadge.r-overdue { background: var(--danger); color: #fff; }
 .rbadge.r-due-today { background: var(--warn); color: #fff; }
 .rbadge.r-due-soon { color: var(--warn); border-color: var(--warn); }
-.rbadge.r-high-priority { color: var(--brass); border-color: var(--brass); }
+.rbadge.r-high-priority { color: var(--gold); border-color: var(--gold); }
 .rbadge.r-stale { color: var(--ink-3); border-color: var(--line-strong); }
 .att-more { font-size: 0.8rem; color: var(--ink-3); padding-top: 0.5rem; }
 
@@ -378,8 +393,8 @@ body::before {
   margin-bottom: 0.9rem;
 }
 .timer-card:has(.timer-running) {
-  background: linear-gradient(135deg, var(--brass-wash), transparent 65%), var(--surface);
-  border-color: color-mix(in srgb, var(--brass) 35%, var(--line));
+  background: linear-gradient(135deg, var(--gold-wash), transparent 65%), var(--surface);
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--line));
 }
 .timer-running { display: flex; align-items: center; gap: 1.4rem; flex-wrap: wrap; }
 .timer-clock {
@@ -388,7 +403,7 @@ body::before {
   font-size: 2.7rem;
   font-weight: 600;
   letter-spacing: -0.015em;
-  color: var(--brass);
+  color: var(--gold);
   display: flex; align-items: center; gap: 0.7rem;
 }
 .timer-clock .pulse {
@@ -425,11 +440,11 @@ input, select, textarea {
 input::placeholder, textarea::placeholder { color: var(--ink-3); }
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
-  border-color: var(--brass);
-  box-shadow: 0 0 0 3px var(--brass-wash);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-wash);
 }
 input.short { max-width: 120px; }
-input[type="checkbox"] { accent-color: var(--brass); width: 15px; height: 15px; }
+input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; }
 textarea { font-family: var(--mono); font-size: 0.85rem; line-height: 1.55; resize: vertical; }
 
 button { cursor: pointer; }
@@ -437,8 +452,8 @@ button[type="submit"], .nav button, button { font: inherit; }
 form button[type="submit"], .wt-add > button:not(.ghost-btn), #settings-save {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--brass-ink);
-  background: var(--brass);
+  color: var(--gold-ink);
+  background: var(--gold);
   border: none;
   border-radius: 8px;
   padding: 0.55rem 1.15rem;
@@ -468,7 +483,7 @@ button.stop:hover { filter: brightness(1.08); }
   text-decoration: none;
   transition: border-color 140ms ease, color 140ms ease;
 }
-.ghost-btn:hover { border-color: var(--brass); color: var(--brass); }
+.ghost-btn:hover { border-color: var(--gold); color: var(--gold); }
 .ghost-btn.sm { padding: 0.32rem 0.7rem; font-size: 0.78rem; }
 .ghost-btn.danger { color: var(--danger); }
 .ghost-btn.danger:hover { border-color: var(--danger); background: var(--danger-wash); }
@@ -484,7 +499,7 @@ button.stop:hover { filter: brightness(1.08); }
   transition: border-color 140ms ease, color 140ms ease;
 }
 .icon-btn svg { width: 16px; height: 16px; }
-.icon-btn:hover { border-color: var(--brass); color: var(--brass); }
+.icon-btn:hover { border-color: var(--gold); color: var(--gold); }
 
 .form-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.9rem; }
 
@@ -499,7 +514,7 @@ button.stop:hover { filter: brightness(1.08); }
   user-select: none;
   list-style-position: inside;
 }
-.manual summary:hover { color: var(--brass); }
+.manual summary:hover { color: var(--gold); }
 .manual-form {
   display: grid;
   grid-template-columns: auto 1fr 1fr 2fr auto auto auto;
@@ -549,7 +564,7 @@ button.stop:hover { filter: brightness(1.08); }
   border-radius: 6px;
 }
 .entry .actions button svg { width: 14px; height: 14px; }
-.entry .actions button:hover { color: var(--brass); border-color: var(--line); }
+.entry .actions button:hover { color: var(--gold); border-color: var(--line); }
 .entry .actions button[data-act="del"]:hover { color: var(--danger); }
 
 .badge {
@@ -560,8 +575,8 @@ button.stop:hover { filter: brightness(1.08); }
   letter-spacing: 0.07em;
   padding: 0.14rem 0.5rem;
   border-radius: 999px;
-  background: var(--brass-wash);
-  color: var(--brass);
+  background: var(--gold-wash);
+  color: var(--gold);
   margin-right: 0.45rem;
   vertical-align: 1px;
 }
@@ -587,7 +602,7 @@ button.stop:hover { filter: brightness(1.08); }
   transition: border-color 140ms ease;
 }
 .todo:hover { border-color: var(--line-strong); }
-.todo.hi { border-left: 3px solid var(--brass); }
+.todo.hi { border-left: 3px solid var(--gold); }
 .todo .check {
   width: 23px; height: 23px; flex: none;
   display: grid; place-items: center;
@@ -604,7 +619,7 @@ button.stop:hover { filter: brightness(1.08); }
 .todo.is-done .check { background: var(--good); border-color: var(--good); color: #fff; }
 .todo.is-done .todo-title { text-decoration: line-through; color: var(--ink-3); }
 .todo-title { font-weight: 600; font-size: 0.95rem; }
-.todo-title .flag { color: var(--brass); font-weight: 800; margin-right: 0.35rem; }
+.todo-title .flag { color: var(--gold); font-weight: 800; margin-right: 0.35rem; }
 .todo-meta { font-size: 0.78rem; color: var(--ink-3); display: flex; gap: 0.7rem; margin-top: 0.12rem; }
 .todo-meta .who { color: var(--ink-2); }
 .todo-meta .due.over { color: var(--danger); font-weight: 700; }
@@ -621,7 +636,7 @@ button.stop:hover { filter: brightness(1.08); }
   border-radius: 6px;
 }
 .todo-actions button svg { width: 14px; height: 14px; }
-.todo-actions button:hover { color: var(--brass); border-color: var(--line); }
+.todo-actions button:hover { color: var(--gold); border-color: var(--line); }
 .todo-actions button[data-act="del"]:hover { color: var(--danger); }
 .todo-done-wrap summary {
   cursor: pointer; font-size: 0.8rem; font-weight: 600;
@@ -644,15 +659,15 @@ button.stop:hover { filter: brightness(1.08); }
   font-weight: 500;
   transition: border-color 140ms ease, background 140ms ease;
 }
-.client-row:hover { border-color: var(--brass); }
-.client-row.sel { border-color: var(--brass); background: var(--brass-wash); }
+.client-row:hover { border-color: var(--gold); }
+.client-row.sel { border-color: var(--gold); background: var(--gold-wash); }
 .client-row .code {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.74rem;
   color: var(--ink-3);
 }
-.client-detail .tot { font-family: var(--mono); color: var(--brass); font-weight: 700; }
+.client-detail .tot { font-family: var(--mono); color: var(--gold); font-weight: 700; }
 
 /* ---------------- library ---------------- */
 .lib-bar { display: flex; gap: 0.6rem; margin-bottom: 1.1rem; }
@@ -674,22 +689,22 @@ button.stop:hover { filter: brightness(1.08); }
   transition: border-color 140ms ease;
 }
 .lib-hit[data-kind="template"] { cursor: pointer; }
-.lib-hit[data-kind="template"]:hover { border-color: var(--brass); }
+.lib-hit[data-kind="template"]:hover { border-color: var(--gold); }
 .lib-title { font-weight: 600; font-size: 0.95rem; }
 .lib-date { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); margin-left: 0.55rem; }
 .lib-snippet { font-size: 0.86rem; color: var(--ink-2); margin-top: 0.18rem; }
-.lib-snippet b { color: var(--brass); background: var(--brass-wash); border-radius: 3px; padding: 0 2px; }
+.lib-snippet b { color: var(--gold); background: var(--gold-wash); border-radius: 3px; padding: 0 2px; }
 .lib-meta { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.35rem; font-size: 0.78rem; color: var(--ink-3); }
 button.mini {
   font: inherit; font-size: 0.72rem; font-weight: 700;
-  color: var(--brass);
+  color: var(--gold);
   background: none;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   padding: 0.18rem 0.55rem;
   transition: border-color 140ms ease;
 }
-button.mini:hover { border-color: var(--brass); }
+button.mini:hover { border-color: var(--gold); }
 #tpl-form label { margin-bottom: 0.75rem; }
 .tpl-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
 
@@ -708,7 +723,7 @@ button.mini:hover { border-color: var(--brass); }
 }
 .attach-row svg { width: 15px; height: 15px; color: var(--ink-3); flex: none; }
 .attach-name { color: var(--ink); font-weight: 500; text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attach-name:hover { color: var(--brass); text-decoration: underline; }
+.attach-name:hover { color: var(--gold); text-decoration: underline; }
 .attach-size { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); }
 .attach-row button {
   display: inline-grid; place-items: center;
