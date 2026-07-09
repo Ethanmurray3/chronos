@@ -66,6 +66,26 @@ importable from CSV.
   export it as CSV. The same CSV shape imports back in (only `date` and
   `minutes` columns are required).
 
+## Agent access (MCP)
+
+`chronos-mcp` is a **separate, optional binary** — an [MCP](https://modelcontextprotocol.io)
+server that lets an AI agent work your Chronos data. One person on a team can
+use it; the Chronos server needs no changes and nobody else ever sees it.
+
+```sh
+go build -o chronos-mcp ./cmd/chronos-mcp
+claude mcp add chronos -- /path/to/chronos-mcp --url http://localhost:8787
+```
+
+Configuration: `--url` flag or `CHRONOS_URL` env; if `CHRONOS_TOKEN` is set it
+is sent as a Bearer token (ready for when the API grows authentication).
+
+Tools: `day_summary`, `attention`, `search_work`, `get_template`, `log_time`,
+`start_timer`, `stop_timer`, `add_todo`, `list_todos`, `summary_report`,
+`list_clients`, `list_work_types`. Clients and work types are matched by name
+or client number against your live catalogs — never invented; a miss returns
+the list of real options so the agent can correct itself.
+
 ## Design notes
 
 - **Single-user today, multi-tenant-ready.** Every row carries an `owner_id`

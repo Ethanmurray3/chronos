@@ -1,5 +1,6 @@
 # build output
 /chronos
+/chronos-mcp
 /dist/
 
 # local database + WAL sidecars
