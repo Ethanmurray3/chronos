@@ -424,8 +424,8 @@ body {
 }
 
 /* ---------------- forms & controls ---------------- */
-label { display: flex; flex-direction: column; gap: 0.32rem; font-size: 0.76rem; font-weight: 500; color: var(--ink-2); }
-label.chk, .chk { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.84rem; white-space: nowrap; }
+label { display: flex; flex-direction: column; gap: 0.32rem; min-width: 0; font-size: 0.76rem; font-weight: 500; color: var(--ink-2); }
+label.chk, .chk { flex-direction: row; align-items: center; gap: 0.4rem; min-width: max-content; font-size: 0.84rem; white-space: nowrap; }
 
 input, select, textarea {
   font: inherit;
@@ -435,6 +435,7 @@ input, select, textarea {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 0.5rem 0.65rem;
+  min-width: 0;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 input::placeholder, textarea::placeholder { color: var(--ink-3); }
@@ -450,6 +451,10 @@ textarea { font-family: var(--mono); font-size: 0.85rem; line-height: 1.55; resi
 button { cursor: pointer; }
 button[type="submit"], .nav button, button { font: inherit; }
 form button[type="submit"], .wt-add > button:not(.ghost-btn), #settings-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--gold-ink);
@@ -457,6 +462,7 @@ form button[type="submit"], .wt-add > button:not(.ghost-btn), #settings-save {
   border: none;
   border-radius: 8px;
   padding: 0.55rem 1.15rem;
+  white-space: nowrap;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-sm);
   transition: filter 140ms ease;
 }
@@ -471,7 +477,9 @@ button.stop:hover { filter: brightness(1.08); }
 .ghost-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  flex: none;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
@@ -481,6 +489,7 @@ button.stop:hover { filter: brightness(1.08); }
   border-radius: 8px;
   padding: 0.48rem 0.95rem;
   text-decoration: none;
+  white-space: nowrap;
   transition: border-color 140ms ease, color 140ms ease;
 }
 .ghost-btn:hover { border-color: var(--gold); color: var(--gold); }
@@ -587,7 +596,7 @@ button.stop:hover { filter: brightness(1.08); }
 
 /* ---------------- to-do ---------------- */
 .todo-form { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.2rem; }
-.todo-form .grow { flex: 1; min-width: 170px; }
+.todo-form .grow { flex: 1; min-width: min(170px, 100%); }
 .todo-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .todo-list.done { margin-top: 0.5rem; opacity: 0.75; }
 .todo {
@@ -646,7 +655,7 @@ button.stop:hover { filter: brightness(1.08); }
 /* ---------------- clients ---------------- */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 2.2rem; align-items: start; }
 .inline-form { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
-.inline-form input { flex: 1; min-width: 110px; }
+.inline-form input { flex: 1; min-width: min(110px, 100%); }
 .client-list { display: flex; flex-direction: column; gap: 0.32rem; }
 .client-row {
   display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;
@@ -671,7 +680,7 @@ button.stop:hover { filter: brightness(1.08); }
 
 /* ---------------- library ---------------- */
 .lib-bar { display: flex; gap: 0.6rem; margin-bottom: 1.1rem; }
-.lib-bar input { flex: 1; }
+.lib-bar input { flex: 1; min-width: 0; }
 .lib-group {
   font-size: 0.68rem;
   font-weight: 700;
@@ -795,7 +804,7 @@ dialog h2 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; fo
 }
 .wt-row button:hover { color: var(--danger); border-color: var(--line); }
 .wt-add { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
-.wt-add input { flex: 1; min-width: 110px; }
+.wt-add input { flex: 1; min-width: min(110px, 100%); }
 
 /* ---------------- toast ---------------- */
 .toast {
@@ -846,4 +855,63 @@ dialog h2 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; fo
   .manual-form { grid-template-columns: 1fr 1fr; }
   .manual-form .grow { grid-column: 1 / -1; }
   .split { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .ph-title { align-items: flex-start; }
+  .day-controls { width: 100%; justify-content: flex-end; }
+  .day-controls input[type="date"] { flex: 1; max-width: 170px; }
+
+  .start-form button[type="submit"],
+  .manual-form button[type="submit"] {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .inline-form,
+  .report-form,
+  .wt-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 0.62fr);
+    align-items: end;
+  }
+  .inline-form input,
+  .report-form label,
+  .wt-add input {
+    width: 100%;
+  }
+  .inline-form button,
+  .inline-form .ghost-btn,
+  .report-form button,
+  .report-form .ghost-btn,
+  .wt-add button,
+  .wt-add .ghost-btn {
+    width: 100%;
+  }
+  .report-form label:nth-of-type(3),
+  .wt-add .chk {
+    grid-column: 1 / -1;
+  }
+  #wt-add-btn { grid-column: 1; }
+  #wt-import-btn { grid-column: 2; }
+
+  dialog { padding: 1.35rem; }
+  .set-grid { grid-template-columns: 1fr; }
+  .wt-row {
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 0.62fr);
+    align-items: end;
+  }
+  .wt-row input,
+  .wt-row input.wt-cat {
+    width: 100%;
+    max-width: none;
+  }
+  .wt-row .chk { grid-column: 1; min-width: 0; }
+  .wt-row button {
+    grid-column: 2;
+    justify-self: end;
+    width: 38px;
+    min-height: 38px;
+  }
+  .form-actions > * { min-width: 76px; }
 }
