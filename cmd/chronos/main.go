@@ -40,7 +40,7 @@ func main() {
 
 	mux := api.New(st, filesDir).Routes()
 	// Everything not matched by an /api route falls through to the UI.
-	mux.Handle("/", http.FileServerFS(webui.FS()))
+	mux.Handle("/", webui.Handler())
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

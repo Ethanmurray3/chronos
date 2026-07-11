@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 
 	"chronos/internal/store"
@@ -111,8 +110,8 @@ func (s *Server) setTodoDone(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, td)
 }
 
-// startFromTodo starts a timer seeded from a todo (its client and title), so a
-// planned task turns into tracked time in one click.
+// startFromTodo starts a timer seeded from a todo (its client and title). If a
+// timer is already running, it is stopped and logged before the new one starts.
 func (s *Server) startFromTodo(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -123,11 +122,7 @@ func (s *Server) startFromTodo(w http.ResponseWriter, r *http.Request) {
 	if handleLookupErr(w, err) {
 		return
 	}
-	e, err := s.st.StartTimer(owner, td.ClientID, td.MatterID, nil, td.Title, nil)
-	if errors.Is(err, store.ErrTimerRunning) {
-		writeErr(w, http.StatusConflict, "a timer is already running")
-		return
-	}
+	e, err := s.st.SwitchTimer(owner, td.ClientID, td.MatterID, nil, td.Title, nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

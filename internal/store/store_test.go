@@ -77,6 +77,38 @@ func TestOneRunningTimer(t *testing.T) {
 	}
 }
 
+func TestSwitchTimer(t *testing.T) {
+	s := openTest(t)
+	first, err := s.StartTimer(SeedOwner, nil, nil, nil, "first", nil)
+	if err != nil {
+		t.Fatalf("StartTimer: %v", err)
+	}
+
+	second, err := s.SwitchTimer(SeedOwner, nil, nil, nil, "from todo", nil)
+	if err != nil {
+		t.Fatalf("SwitchTimer: %v", err)
+	}
+	if second.Description != "from todo" || !second.Running {
+		t.Fatalf("replacement timer = %+v", second)
+	}
+
+	stopped, err := s.Entry(SeedOwner, first.ID)
+	if err != nil {
+		t.Fatalf("old timer: %v", err)
+	}
+	if stopped.Running || stopped.EndedAt == nil || stopped.DurationMin == nil {
+		t.Errorf("old timer was not logged: %+v", stopped)
+	}
+
+	current, err := s.CurrentTimer(SeedOwner)
+	if err != nil {
+		t.Fatalf("CurrentTimer: %v", err)
+	}
+	if current.ID != second.ID {
+		t.Errorf("current timer ID = %d, want %d", current.ID, second.ID)
+	}
+}
+
 func TestDayReportMath(t *testing.T) {
 	s := openTest(t)
 	// 100 min billable, 50 min non-billable, 7 min billable (rounds to 12),
@@ -112,7 +144,7 @@ func TestSeasonalTargetAndOvertime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DayReport busy: %v", err)
 	}
-	assertEq(t, "busy target", busy.TargetMin, 480)   // Feb → busy season
+	assertEq(t, "busy target", busy.TargetMin, 480)    // Feb → busy season
 	assertEq(t, "busy overtime", busy.OvertimeMin, 20) // 500 - 480
 
 	off, err := s.DayReport(SeedOwner, "2026-07-10")

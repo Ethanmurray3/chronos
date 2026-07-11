@@ -15,63 +15,44 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='none' stroke='%23b8860f' stroke-width='6'/%3E%3Cpath d='M50 26v26l18 10' fill='none' stroke='%23b8860f' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E" />
 </head>
 <body>
-  <aside class="side">
-    <div class="brand">
+  <header class="topbar">
+    <a class="brand" href="#today">
       <span class="brand-mark" aria-hidden="true"></span>
-      <div class="brand-text">
-        <span class="brand-name">Chronos</span>
-        <span class="brand-sub">Time &amp; client work</span>
-      </div>
-    </div>
+      <span class="brand-name">Chronos</span>
+    </a>
 
-    <nav class="nav" id="tabs" aria-label="Main">
-      <button data-view="today" class="active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-        <span>Today</span>
-      </button>
-      <button data-view="todos">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8.5 12.2l2.4 2.4 4.8-5.2"/></svg>
-        <span>To-do</span>
-      </button>
-      <button data-view="clients">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c0-3.2 2.4-5.3 5.5-5.3s5.5 2.1 5.5 5.3"/><circle cx="16.8" cy="9.5" r="2.4"/><path d="M16.5 14.4c2.5.3 4 2.1 4 4.6"/></svg>
-        <span>Clients</span>
-      </button>
-      <button data-view="library">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M5 4.5A2.5 2.5 0 017.5 2H19v20H7.5A2.5 2.5 0 015 19.5z"/><path d="M9 2v20"/></svg>
-        <span>Library</span>
-      </button>
-      <button data-view="reports">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="13" width="3.6" height="7" rx="1"/><rect x="10.2" y="8" width="3.6" height="12" rx="1"/><rect x="16.4" y="4" width="3.6" height="16" rx="1"/></svg>
-        <span>Reports</span>
-      </button>
+    <nav class="topnav" id="topnav" aria-label="Sections">
+      <a href="#today" class="active">Today</a>
+      <a href="#clients">Clients</a>
+      <a href="#library">Library</a>
+      <a href="#reports">Reports</a>
     </nav>
 
-    <button id="side-timer" class="side-timer" hidden title="A timer is running — go to Today">
+    <button id="bar-timer" class="bar-timer" hidden title="A timer is running — go to it">
       <span class="pulse-dot" aria-hidden="true"></span>
-      <span class="st-text">
-        <span id="side-timer-label">Working</span>
-        <span id="side-timer-clock">0:00:00</span>
-      </span>
+      <span id="bar-timer-label" class="bt-label">Working</span>
+      <span id="bar-timer-clock" class="bt-clock">0:00:00</span>
     </button>
 
-    <div class="side-foot">
-      <button id="theme-btn" class="nav-ghost" title="Switch theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></svg>
-        <span>Theme: <b id="theme-label">System</b></span>
+    <div class="top-actions">
+      <button id="palette-btn" class="top-btn" title="Search & actions (⌘K)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <kbd aria-hidden="true">⌘K</kbd>
       </button>
-      <button id="settings-btn" class="nav-ghost">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="15" cy="7" r="2" fill="var(--surface)"/><circle cx="8" cy="12" r="2" fill="var(--surface)"/><circle cx="17" cy="17" r="2" fill="var(--surface)"/></svg>
-        <span>Settings</span>
+      <button id="theme-btn" class="top-btn" title="Theme: System" aria-label="Switch theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button id="settings-btn" class="top-btn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="15" cy="7" r="2" fill="var(--bg)"/><circle cx="8" cy="12" r="2" fill="var(--bg)"/><circle cx="17" cy="17" r="2" fill="var(--bg)"/></svg>
       </button>
     </div>
-  </aside>
+  </header>
 
-  <main class="content" id="app">
-    <!-- ===== TODAY ===== -->
-    <section id="view-today" class="view">
-      <header class="page-head">
-        <div class="ph-title">
+  <main class="page">
+    <!-- ===== TODAY — the workspace ===== -->
+    <section id="today" class="section">
+      <div class="day-head">
+        <div class="day-title">
           <h1 id="day-label">Today</h1>
           <div class="day-controls">
             <button id="day-prev" class="icon-btn" title="Previous day" aria-label="Previous day">
@@ -84,108 +65,79 @@
             <button id="day-today" class="ghost-btn sm" hidden>Back to today</button>
           </div>
         </div>
-      </header>
-
-      <div class="daybar" id="daybar"></div>
-
-      <div id="attention" class="attention" hidden></div>
+        <div class="daystrip" id="daybar" aria-label="Day totals"></div>
+      </div>
 
       <div class="timer-card" id="timer-card"></div>
 
-      <details class="manual" id="manual">
-        <summary>Add an entry</summary>
-        <form id="manual-form" class="manual-form"></form>
-      </details>
+      <div class="timeline" id="timeline" hidden>
+        <div class="tl-track" id="tl-track" role="img" aria-label="Timeline of the day's entries"></div>
+        <div class="tl-axis"><span id="tl-start"></span><span id="tl-end"></span></div>
+      </div>
 
-      <h2 class="section-title" id="entries-title">Today's entries</h2>
-      <div id="entries" class="entries"></div>
-    </section>
+      <div class="workspace">
+        <div class="entries-col">
+          <h2 class="section-title" id="entries-title">Today's entries</h2>
+          <div id="entries" class="entries"></div>
+          <details class="manual" id="manual">
+            <summary>＋ Add an entry</summary>
+            <form id="manual-form" class="manual-form"></form>
+          </details>
+        </div>
 
-    <!-- ===== TO-DO ===== -->
-    <section id="view-todos" class="view" hidden>
-      <header class="page-head">
-        <div class="ph-title"><h1>To-do</h1></div>
-        <p class="ph-sub">Deadlines, follow-ups, and the list itself — start a timer from any task.</p>
-      </header>
-      <form id="todo-form" class="todo-form">
-        <input name="title" placeholder="What needs doing?" required class="grow" />
-        <select name="client" id="todo-client"></select>
-        <input type="date" name="due" title="Due date" />
-        <label class="chk"><input type="checkbox" name="priority" /> High</label>
-        <button type="submit">Add</button>
-      </form>
-      <div id="todo-list" class="todo-list"></div>
-      <details id="todo-done-wrap" class="todo-done-wrap" hidden>
-        <summary>Completed</summary>
-        <div id="todo-done" class="todo-list done"></div>
-      </details>
-    </section>
-
-    <!-- ===== CLIENTS ===== -->
-    <section id="view-clients" class="view" hidden>
-      <header class="page-head">
-        <div class="ph-title"><h1>Clients</h1></div>
-        <p class="ph-sub">Every client carries your firm's number, so time lands where it should.</p>
-      </header>
-      <div class="split">
-        <div class="col">
-          <form id="client-form" class="inline-form">
-            <input name="name" placeholder="Client name" required />
-            <input name="code" placeholder="Client #" class="short" />
-            <button type="submit">Add</button>
-            <button type="button" id="client-import-btn" class="ghost-btn">Import CSV</button>
+        <aside class="rail" aria-label="To-do list">
+          <h2 class="section-title">To-do</h2>
+          <form id="todo-form" class="todo-form">
+            <input name="title" placeholder="What needs doing?" required />
+            <div class="todo-form-row">
+              <select name="client" id="todo-client"></select>
+              <input type="date" name="due" title="Due date" aria-label="Due date" />
+              <label class="chk"><input type="checkbox" name="priority" /> High</label>
+              <button type="submit" class="ghost-btn sm">Add</button>
+            </div>
           </form>
-          <div id="client-list" class="client-list"></div>
-        </div>
-        <div class="col">
-          <h2 class="section-title" id="client-detail-title">Select a client</h2>
-          <div id="client-detail" class="client-detail"></div>
-        </div>
+          <div id="todo-list" class="todo-list"></div>
+          <details id="todo-done-wrap" class="todo-done-wrap" hidden>
+            <summary>Completed</summary>
+            <div id="todo-done" class="todo-list done"></div>
+          </details>
+        </aside>
       </div>
     </section>
 
+    <!-- ===== CLIENTS ===== -->
+    <section id="clients" class="section">
+      <header class="sec-head">
+        <h2>Clients</h2>
+        <p class="sec-sub">Every client carries your firm's number, so time lands where it should.</p>
+      </header>
+      <form id="client-form" class="inline-form">
+        <input name="name" placeholder="Client name" required />
+        <input name="code" placeholder="Client #" class="short" />
+        <button type="submit">Add</button>
+        <button type="button" id="client-import-btn" class="ghost-btn">Import CSV</button>
+      </form>
+      <div id="client-list" class="client-list"></div>
+    </section>
+
     <!-- ===== LIBRARY ===== -->
-    <section id="view-library" class="view" hidden>
-      <header class="page-head">
-        <div class="ph-title"><h1>Library</h1></div>
-        <p class="ph-sub">Everything you've coded and saved, one search away.</p>
+    <section id="library" class="section">
+      <header class="sec-head">
+        <h2>Library</h2>
+        <p class="sec-sub">Everything you've coded and saved, one search away.</p>
       </header>
       <div class="lib-bar">
         <input id="lib-search" type="search" placeholder="Search past work and templates…" />
         <button id="tpl-new" type="button" class="ghost-btn">New template</button>
       </div>
-      <div class="split">
-        <div class="col"><div id="lib-results"></div></div>
-        <div class="col" id="tpl-editor" hidden>
-          <h2 class="section-title" id="tpl-editor-title">Template</h2>
-          <form id="tpl-form">
-            <label>Title<input name="title" required /></label>
-            <div class="tpl-row">
-              <label>Work type<select name="work_type"></select></label>
-              <label>Tags<input name="tags" placeholder="comma, separated" /></label>
-            </div>
-            <label>Body<textarea name="body" rows="12" placeholder="The reusable text — letter skeleton, step list, checklist…"></textarea></label>
-            <div class="form-actions">
-              <button type="button" id="tpl-delete" class="ghost-btn danger" hidden>Delete</button>
-              <button type="submit">Save</button>
-            </div>
-          </form>
-          <div class="attach" id="tpl-attach" hidden>
-            <div class="attach-head">
-              <span class="section-title">Attachments</span>
-              <button type="button" id="attach-btn" class="ghost-btn sm">Attach file</button>
-            </div>
-            <div id="attach-list" class="attach-list"></div>
-          </div>
-        </div>
-      </div>
+      <div id="lib-results"></div>
     </section>
 
     <!-- ===== REPORTS ===== -->
-    <section id="view-reports" class="view" hidden>
-      <header class="page-head">
-        <div class="ph-title"><h1>Reports</h1></div>
-        <p class="ph-sub">Any range, grouped how your firm thinks — client, work type, or day.</p>
+    <section id="reports" class="section">
+      <header class="sec-head">
+        <h2>Reports</h2>
+        <p class="sec-sub">Any range, grouped how your firm thinks — client, work type, or day.</p>
       </header>
       <form id="report-form" class="report-form">
         <label>From <input type="date" name="from" /></label>
@@ -202,7 +154,29 @@
       </form>
       <div id="report-out" class="report-out"></div>
     </section>
+
+    <footer class="page-foot">Chronos — time &amp; client work</footer>
   </main>
+
+  <!-- slide-over panel: client detail, template editor -->
+  <div class="scrim" id="scrim" aria-hidden="true"></div>
+  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title">
+    <header class="panel-head">
+      <h2 id="panel-title"></h2>
+      <button id="panel-close" class="icon-btn" title="Close" aria-label="Close panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="panel-body" id="panel-body"></div>
+  </aside>
+
+  <!-- command palette -->
+  <dialog id="palette" class="palette" aria-label="Search and actions">
+    <input id="palette-input" type="text" placeholder="Type a command, client, or search…"
+      autocomplete="off" spellcheck="false" />
+    <ul id="palette-list" class="palette-list"></ul>
+    <p class="palette-hint"><kbd>↑↓</kbd> navigate · <kbd>↵</kbd> select · <kbd>esc</kbd> close</p>
+  </dialog>
 
   <!-- settings dialog -->
   <dialog id="settings-dialog">

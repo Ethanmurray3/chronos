@@ -194,6 +194,54 @@ func (s *Store) StartTimer(owner int64, clientID, matterID, workTypeID *int64, d
 	return s.Entry(owner, id)
 }
 
+// SwitchTimer atomically closes the owner's running timer, if any, and starts
+// a new one. If creating the replacement fails, the previous timer remains
+// running because both changes are committed together.
+func (s *Store) SwitchTimer(owner int64, clientID, matterID, workTypeID *int64, desc string, billable *bool) (Entry, error) {
+	b := s.resolveBillable(owner, workTypeID, billable)
+	now := touchNow()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return Entry{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var runningID, startedAt int64
+	err = tx.QueryRow(
+		`SELECT id, started_at FROM time_entries WHERE owner_id = ? AND ended_at IS NULL`, owner,
+	).Scan(&runningID, &startedAt)
+	switch {
+	case err == nil:
+		dur := roundSecondsToMin(now - startedAt)
+		if _, err := tx.Exec(
+			`UPDATE time_entries SET ended_at = ?, duration_min = ?, updated_at = ?
+			  WHERE owner_id = ? AND id = ?`,
+			now, dur, now, owner, runningID,
+		); err != nil {
+			return Entry{}, err
+		}
+	case errors.Is(err, sql.ErrNoRows):
+		// Nothing to close; this becomes an ordinary timer start.
+	case err != nil:
+		return Entry{}, err
+	}
+
+	res, err := tx.Exec(
+		`INSERT INTO time_entries
+		   (owner_id, client_id, matter_id, work_type_id, description,
+		    started_at, ended_at, duration_min, billable, source, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'timer', ?, ?)`,
+		owner, clientID, matterID, workTypeID, desc, now, boolToInt(b), now, now)
+	if err != nil {
+		return Entry{}, err
+	}
+	id, _ := res.LastInsertId()
+	if err := tx.Commit(); err != nil {
+		return Entry{}, err
+	}
+	return s.Entry(owner, id)
+}
+
 // StopTimer closes the running entry, computing its duration to the nearest
 // minute. Returns ErrNotFound if nothing is running.
 func (s *Store) StopTimer(owner int64) (Entry, error) {
