@@ -41,22 +41,24 @@ importable from CSV.
 
 ## Using it
 
+The app is **two pages** — Today (the daily workspace) and Templates — with
+Clients, Reports, and Settings as dialogs off the top bar.
+
 - **Today** — start/stop a timer against a client and work type, or add a past
-  entry. The header tracks Worked · Billable · **Non-billable** · **Remaining**
-  (of the seasonal target) · **Overtime**, live. Arrow through days or jump to
-  any date — yesterday or a random Wednesday two years ago — and the day bar
+  entry. Pick an open **task** in either form and it fills in the client and
+  description. Manual entries take real **start/end clock times** (3:00 →
+  4:30 becomes 1.5h at 3:00) or a bare duration. The header tracks Worked ·
+  Billable · **Non-billable** · **Remaining** (of the seasonal target) ·
+  **Overtime** live, and the **Coded today** ledger sits front and centre with
+  the day's total. Arrow through days or jump to any date and the day bar
   recomputes with that day's seasonal standard.
 - **Needs attention** — a panel on Today that surfaces what matters from your
   list: overdue items, due today/soon, high priority, and anything sitting
   untouched for 14+ days. Served by `GET /api/v1/attention`, so agents can ask
   the same question.
 - **To-do** — a task list optionally tied to a client, with due dates and a
-  high-priority flag. One click (▶) starts a timer seeded from the task; rows
-  show how long they've been on your list.
-- **Clients** — add clients (name + your firm's client number) and browse
-  everything you've logged for each. Bulk-load from a CSV export of your firm
-  system (`name` + `code`/`number` columns); dropdowns show the number
-  everywhere.
+  high-priority flag. Tasks feed the time-coding forms; rows show how long
+  they've been on your list.
 - **Templates** — the standalone deliverable library, decoupled from time
   coding. When you finish a letter or worksheet worth reusing, save it here:
   attach the real file (Word, PDF), write notes about what it contains and
@@ -64,11 +66,20 @@ importable from CSV.
   responses"), and optionally label which client it was originally for.
   Grouped by category with its own full-text search; files live on disk next
   to the database in `chronos-files/`, so backup means copying one folder.
-- **Library** — full-text search over *everything you've ever coded*, so
-  "what did I do for that reorg" is answered from the record.
-- **Reports** — total any date range grouped by client, work type, or day, and
-  export it as CSV. The same CSV shape imports back in (only `date` and
-  `minutes` columns are required).
+- **Clients** (dialog) — add clients (name + your firm's client number) and
+  browse everything you've logged for each. Bulk-load from a CSV export of
+  your firm system (`name` + `code`/`number` columns); dropdowns show the
+  number everywhere.
+- **Reports** (overlay) — a mini dashboard for any range: quick chips (this
+  month, last month, this year, last year) or custom dates, summary tiles for
+  worked / billable / non-billable / **overtime** / **vacation**, and a
+  breakdown grouped by client, work type, or day with client/work-type
+  filters. **Export to Excel** produces a real .xlsx (Summary + Breakdown
+  sheets). Overtime uses the weekend rule — Mon–Fri it's time beyond the
+  seasonal daily standard, Sat/Sun every coded minute counts — and vacation
+  (time on the seeded non-billable **Vacation** work type) is totalled
+  separately, never as overtime. CSV export/import of raw entries lives on in
+  the API (`/api/v1/export.csv`, `/api/v1/import`).
 
 ## Agent access (MCP)
 
@@ -86,9 +97,11 @@ is sent as a Bearer token (ready for when the API grows authentication).
 
 Tools: `day_summary`, `attention`, `search_work`, `search_templates`,
 `get_template`, `log_time`, `start_timer`, `stop_timer`, `add_todo`,
-`list_todos`, `summary_report`, `list_clients`, `list_work_types`. Clients and work types are matched by name
-or client number against your live catalogs — never invented; a miss returns
-the list of real options so the agent can correct itself.
+`list_todos`, `summary_report` (filterable by client/work type),
+`period_report` (overtime + vacation for a range), `list_clients`,
+`list_work_types`. Clients and work types are matched by name or client
+number against your live catalogs — never invented; a miss returns the list
+of real options so the agent can correct itself.
 
 ## Design notes
 

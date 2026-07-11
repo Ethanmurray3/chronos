@@ -80,6 +80,8 @@ func (s *Server) Routes() *http.ServeMux {
 
 	mux.HandleFunc("GET /api/v1/reports/day", s.reportDay)
 	mux.HandleFunc("GET /api/v1/reports/summary", s.reportSummary)
+	mux.HandleFunc("GET /api/v1/reports/range", s.reportRange)
+	mux.HandleFunc("GET /api/v1/reports/export.xlsx", s.exportXLSX)
 
 	mux.HandleFunc("GET /api/v1/export.csv", s.exportCSV)
 	mux.HandleFunc("POST /api/v1/import", s.importCSV)
@@ -388,12 +390,23 @@ func (s *Server) reportDay(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) reportSummary(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	rows, err := s.st.SummaryReport(currentOwner(r), q.Get("from"), q.Get("to"), q.Get("group_by"))
+	rows, err := s.st.SummaryReport(currentOwner(r), q.Get("from"), q.Get("to"), q.Get("group_by"),
+		queryInt(q.Get("client_id")), queryInt(q.Get("work_type_id")))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": rows})
+}
+
+func (s *Server) reportRange(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	rep, err := s.st.RangeReport(currentOwner(r), q.Get("from"), q.Get("to"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
 }
 
 // ---- shared helpers ----

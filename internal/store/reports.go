@@ -2,6 +2,8 @@ package store
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -54,6 +56,111 @@ func (s *Store) DayReport(owner int64, date string) (DayReport, error) {
 	return rep, nil
 }
 
+// RangeReport totals a date range for the reports dashboard: how much was
+// worked, how much of it was overtime, and how much vacation was taken.
+//
+// Overtime uses the weekend rule: Mon–Fri a day's overtime is coded time
+// beyond that day's seasonal standard; Sat/Sun every coded minute counts.
+// Vacation (entries on the "Vacation" work type) is totalled separately and
+// never counts toward overtime — a booked-off day is not time over standard.
+type RangeReport struct {
+	From           string     `json:"from"`
+	To             string     `json:"to"`
+	WorkedMin      int64      `json:"worked_min"`       // all coded time, vacation included
+	BillableMin    int64      `json:"billable_min"`
+	NonBillableMin int64      `json:"non_billable_min"`
+	BilledMin      int64      `json:"billed_min"`
+	OvertimeMin    int64      `json:"overtime_min"`
+	VacationMin    int64      `json:"vacation_min"`
+	Days           []RangeDay `json:"days"` // only days with coded time
+}
+
+// RangeDay is one day's contribution to a RangeReport.
+type RangeDay struct {
+	Date        string `json:"date"` // YYYY-MM-DD
+	Weekend     bool   `json:"weekend"`
+	TargetMin   int64  `json:"target_min"`
+	WorkedMin   int64  `json:"worked_min"`
+	OvertimeMin int64  `json:"overtime_min"`
+	VacationMin int64  `json:"vacation_min"`
+}
+
+// vacationWorkType is the work-type name reports treat as vacation. The
+// migration/seed guarantees a work type with this name exists.
+const vacationWorkType = "Vacation"
+
+func isVacation(e Entry) bool {
+	return strings.EqualFold(e.WorkTypeName, vacationWorkType)
+}
+
+// RangeReport aggregates the inclusive day range [fromDate, toDate] in the
+// owner's timezone. Empty dates mean today.
+func (s *Store) RangeReport(owner int64, fromDate, toDate string) (RangeReport, error) {
+	set, err := s.Settings(owner)
+	if err != nil {
+		return RangeReport{}, err
+	}
+	loc := set.location()
+	start, _, fromISO, err := dayBounds(fromDate, loc)
+	if err != nil {
+		return RangeReport{}, err
+	}
+	_, end, toISO, err := dayBounds(toDate, loc)
+	if err != nil {
+		return RangeReport{}, err
+	}
+	entries, err := s.ListEntries(owner, &start, &end, nil)
+	if err != nil {
+		return RangeReport{}, err
+	}
+
+	rep := RangeReport{From: fromISO, To: toISO, Days: []RangeDay{}}
+	rounding := int64(set.RoundingMin)
+	days := map[string]*RangeDay{}
+	order := []string{}
+	for _, e := range entries {
+		t := time.Unix(e.StartedAt, 0).In(loc)
+		iso := t.Format("2006-01-02")
+		d, ok := days[iso]
+		if !ok {
+			wd := t.Weekday()
+			d = &RangeDay{
+				Date:      iso,
+				Weekend:   wd == time.Saturday || wd == time.Sunday,
+				TargetMin: int64(set.TargetMinForMonth(t.Month())),
+			}
+			days[iso] = d
+			order = append(order, iso)
+		}
+		d.WorkedMin += e.EffectiveMin
+		if isVacation(e) {
+			d.VacationMin += e.EffectiveMin
+		}
+		rep.WorkedMin += e.EffectiveMin
+		if e.Billable {
+			rep.BillableMin += e.EffectiveMin
+			rep.BilledMin += roundUpTo(e.EffectiveMin, rounding)
+		} else {
+			rep.NonBillableMin += e.EffectiveMin
+		}
+	}
+
+	sort.Strings(order)
+	for _, iso := range order {
+		d := days[iso]
+		workable := d.WorkedMin - d.VacationMin // vacation never counts as OT
+		if d.Weekend {
+			d.OvertimeMin = workable
+		} else {
+			d.OvertimeMin = max64(0, workable-d.TargetMin)
+		}
+		rep.OvertimeMin += d.OvertimeMin
+		rep.VacationMin += d.VacationMin
+		rep.Days = append(rep.Days, *d)
+	}
+	return rep, nil
+}
+
 // SummaryRow is one grouped bucket in a range report.
 type SummaryRow struct {
 	Key         string `json:"key"`   // id or date, as a string
@@ -65,8 +172,9 @@ type SummaryRow struct {
 }
 
 // SummaryReport rolls entries in [fromDate, toDate] (inclusive days, owner tz)
-// up by client, work_type, or day. Rows are sorted by worked time descending.
-func (s *Store) SummaryReport(owner int64, fromDate, toDate, groupBy string) ([]SummaryRow, error) {
+// up by client, work_type, or day, optionally filtered to one client and/or
+// one work type. Rows are sorted by worked time descending.
+func (s *Store) SummaryReport(owner int64, fromDate, toDate, groupBy string, clientID, workTypeID *int64) ([]SummaryRow, error) {
 	set, err := s.Settings(owner)
 	if err != nil {
 		return nil, err
@@ -80,7 +188,7 @@ func (s *Store) SummaryReport(owner int64, fromDate, toDate, groupBy string) ([]
 	if err != nil {
 		return nil, err
 	}
-	entries, err := s.ListEntries(owner, &start, &end, nil)
+	entries, err := s.ListEntries(owner, &start, &end, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +207,9 @@ func (s *Store) SummaryReport(owner int64, fromDate, toDate, groupBy string) ([]
 	}
 
 	for _, e := range entries {
+		if workTypeID != nil && (e.WorkTypeID == nil || *e.WorkTypeID != *workTypeID) {
+			continue
+		}
 		var key, label string
 		switch groupBy {
 		case "work_type":

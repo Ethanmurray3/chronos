@@ -7,10 +7,9 @@ import { initPanel } from "./lib/panel.js";
 import { initPalette } from "./lib/palette.js";
 import { initToday, refreshToday, tickTimer, scrollToTimer, stopTimer } from "./sections/today.js";
 import { initTodos, focusTodoForm } from "./sections/todos.js";
-import { initClients, openClientPanel } from "./sections/clients.js";
-import { initLibrary, loadLibrary, libraryLoaded, searchLibraryFor } from "./sections/library.js";
+import { initClients, openClients, openClientPanel } from "./sections/clients.js";
 import { initTemplates, loadTemplates, templatesLoaded, openTplEditor, openTplEditorById } from "./sections/templates.js";
-import { initReports, autoRunReports, exportURL } from "./sections/reports.js";
+import { initReports, openReports } from "./sections/reports.js";
 import { initSettings, openSettings } from "./sections/settings.js";
 
 // ---------- theme ----------
@@ -38,65 +37,39 @@ function wireTheme() {
   });
 }
 
-// ---------- topbar: scroll-spy + lazy section init ----------
-let spyObs, firstViewObs; // module refs so the observers can never be collected
+// ---------- the two pages: Today | Templates ----------
+export function switchView(id) {
+  if (!document.getElementById(id)) id = "today";
+  for (const sec of document.querySelectorAll("main .view"))
+    sec.classList.toggle("active", sec.id === id);
+  for (const a of document.querySelectorAll("#topnav a"))
+    a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+  if (id === "templates" && !templatesLoaded()) loadTemplates();
+  if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+  window.scrollTo({ top: 0 });
+}
 
 function wireTopbar() {
-  const links = [...document.querySelectorAll("#topnav a")];
-  const byId = new Map(links.map((a) => [a.getAttribute("href").slice(1), a]));
-  const sections = [...document.querySelectorAll("main .section")];
-
-  // idempotent first-view handling: entrance animation + lazy data loads
-  const markFirstView = (sec) => {
-    if (sec.classList.contains("in-view")) return;
-    sec.classList.add("in-view");
-    if (sec.id === "templates" && !templatesLoaded()) loadTemplates();
-    if (sec.id === "library" && !libraryLoaded()) loadLibrary();
-    if (sec.id === "reports") autoRunReports();
-  };
-
-  // Observers only report on rendered frames, and ones created while the
-  // document is still loading can miss entirely — attach after load and
-  // seed the initial state from geometry so nothing depends on a frame.
-  const attach = () => {
-    // which section is "current" — a band around the upper third of the viewport
-    spyObs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          links.forEach((a) => a.classList.remove("active"));
-          byId.get(e.target.id)?.classList.add("active");
-        }
-      },
-      { rootMargin: "-20% 0px -65% 0px" },
-    );
-    firstViewObs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          markFirstView(e.target);
-          firstViewObs.unobserve(e.target);
-        }
-      },
-      { threshold: 0.15 },
-    );
-    for (const sec of sections) {
-      spyObs.observe(sec);
-      firstViewObs.observe(sec);
-      const r = sec.getBoundingClientRect();
-      if (r.top < window.innerHeight && r.bottom > 0) markFirstView(sec);
-    }
-  };
-  if (document.readyState === "complete") attach();
-  else window.addEventListener("load", attach, { once: true });
-
+  document.querySelector(".topbar").addEventListener("click", (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    switchView(a.getAttribute("href").slice(1));
+  });
+  window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
+  // sections (scrollToTimer) ask for a view change via this event so they
+  // don't have to import app.js back
+  document.addEventListener("switch-view", (e) => switchView(e.detail));
+  // generic dialog close buttons
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-close]");
+    if (btn) $("#" + btn.dataset.close).close();
+  });
   $("#bar-timer").addEventListener("click", () => scrollToTimer(false));
+  switchView(location.hash.slice(1) || "today");
 }
 
 // ---------- command palette actions ----------
-const scrollTo = (id) => () =>
-  $("#" + id).scrollIntoView({ behavior: "smooth", block: "start" });
-
 const paletteActions = [
   { label: "Start a timer", hint: "Today", when: () => !state.timer, run: () => scrollToTimer(true) },
   { label: "Stop the timer", hint: "Today", when: () => !!state.timer, run: stopTimer },
@@ -111,12 +84,11 @@ const paletteActions = [
     },
   },
   { label: "New template", hint: "Templates", run: () => openTplEditor(null) },
-  { label: "Go to Clients", run: scrollTo("clients") },
-  { label: "Go to Templates", run: scrollTo("templates") },
-  { label: "Go to Library", run: scrollTo("library") },
-  { label: "Go to Reports", run: scrollTo("reports") },
+  { label: "Go to Today", run: () => switchView("today") },
+  { label: "Go to Templates", run: () => switchView("templates") },
+  { label: "Open Clients", run: openClients },
+  { label: "Open Reports", run: openReports },
   { label: "Settings", run: openSettings },
-  { label: "Export CSV", hint: "current range", run: () => window.open(exportURL(), "_blank") },
 ];
 
 // ---------- boot ----------
@@ -128,13 +100,11 @@ async function boot() {
   initPalette(paletteActions, {
     openClient: openClientPanel,
     openTemplate: openTplEditorById,
-    searchLibrary: searchLibraryFor,
   });
   initToday();
   initTodos();
   initClients();
   initTemplates();
-  initLibrary();
   initReports();
   initSettings();
   wireTopbar();

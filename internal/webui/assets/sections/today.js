@@ -79,14 +79,33 @@ function renderTimer() {
   } else {
     card.innerHTML = `
       <form class="start-form" id="start-form">
+        <label>Task<select name="task">${taskOptions()}</select></label>
         <label>Client<select name="client">${clientOptions()}</select></label>
         <label>Work type<select name="work_type">${workTypeOptions()}</select></label>
         <label class="grow">Description<input name="description" placeholder="What are you working on?" /></label>
         <button type="submit">Start</button>
       </form>`;
     $("#start-form").addEventListener("submit", startTimer);
+    $("#start-form").task.addEventListener("change", onTaskPicked);
   }
   updateBarTimer();
+}
+
+// ---------- the task picker ----------
+// Coding time usually follows the to-do list: picking an open task seeds the
+// client and description (still editable). Completing the task stays manual.
+function taskOptions(sel) {
+  const open = (state.todos || []).filter((t) => t.status !== "done");
+  return `<option value="">— task —</option>` + open.map((t) =>
+    `<option value="${t.id}" ${t.id === sel ? "selected" : ""}>${esc(t.title)}</option>`).join("");
+}
+
+function onTaskPicked(e) {
+  const form = e.target.form;
+  const t = (state.todos || []).find((x) => x.id === parseInt(e.target.value, 10));
+  if (!t) return;
+  if (t.client_id) form.client.value = String(t.client_id);
+  form.description.value = t.title;
 }
 
 // The topbar chip mirrors the running timer so it stays visible anywhere on the page.
@@ -122,6 +141,8 @@ export function tickTimer() {
 }
 
 export function scrollToTimer(focusForm = true) {
+  // make sure the Today view is frontmost first (app.js owns view switching)
+  document.dispatchEvent(new CustomEvent("switch-view", { detail: "today" }));
   $("#today").scrollIntoView({ behavior: "smooth", block: "start" });
   if (focusForm) {
     const el = $("#timer-card select, #timer-card button.stop");
@@ -199,28 +220,44 @@ function renderTimeline() {
 function renderManualForm() {
   $("#manual-form").innerHTML = `
     <label>Date<input type="date" name="date" value="${state.viewDate}" /></label>
+    <label>Task<select name="task">${taskOptions()}</select></label>
     <label>Client<select name="client">${clientOptions()}</select></label>
     <label>Work type<select name="work_type">${workTypeOptions()}</select></label>
     <label class="grow">Description<input name="description" placeholder="Notes" /></label>
-    <label>Hours<input type="number" name="dhours" step="0.1" min="0" placeholder="1.5" class="hrs" /></label>
+    <label>Start<input type="time" name="tstart" class="hrs" /></label>
+    <label>End<input type="time" name="tend" class="hrs" /></label>
+    <label>or Hours<input type="number" name="dhours" step="0.1" min="0" placeholder="1.5" class="hrs" /></label>
     <label class="chk"><input type="checkbox" name="billable" checked /> Billable</label>
     <button type="submit">Add</button>`;
+  $("#manual-form").task.addEventListener("change", onTaskPicked);
 }
 
 async function submitManual(e) {
   e.preventDefault();
   const f = e.target;
-  const dh = parseFloat(f.dhours.value);
-  if (!dh || dh <= 0) return toast("Enter hours", true);
-  // Nominal start: 09:00 local on the chosen date.
-  const started = Math.floor(new Date(f.date.value + "T09:00:00").getTime() / 1000);
+  // Two ways to say how long: real start/end clock times (3:00 → 4:30 is
+  // 1.5h at 3:00), or a bare duration with a nominal 09:00 start.
+  let started, durationMin;
+  if (f.tstart.value && f.tend.value) {
+    started = Math.floor(new Date(f.date.value + "T" + f.tstart.value).getTime() / 1000);
+    const ended = Math.floor(new Date(f.date.value + "T" + f.tend.value).getTime() / 1000);
+    durationMin = Math.round((ended - started) / 60);
+    if (durationMin <= 0) return toast("End time must be after start", true);
+  } else if (f.tstart.value || f.tend.value) {
+    return toast("Enter both start and end times (or just hours)", true);
+  } else {
+    const dh = parseFloat(f.dhours.value);
+    if (!dh || dh <= 0) return toast("Enter start/end times or hours", true);
+    started = Math.floor(new Date(f.date.value + "T09:00:00").getTime() / 1000);
+    durationMin = Math.round(dh * 60);
+  }
   try {
     await POST("/api/v1/time-entries", {
       client_id: intOrNull(f.client.value),
       work_type_id: intOrNull(f.work_type.value),
       description: f.description.value.trim(),
       started_at: started,
-      duration_min: Math.round(dh * 60),
+      duration_min: durationMin,
       billable: f.billable.checked,
     });
     f.reset();
@@ -236,8 +273,11 @@ async function submitManual(e) {
 function renderEntries() {
   const box = $("#entries");
   const viewingToday = state.viewDate === todayISO();
-  $("#entries-title").textContent = viewingToday ? "Today's entries" : `Entries — ${dayLabel()}`;
+  $("#entries-title").textContent = viewingToday ? "Coded today" : `Coded — ${dayLabel()}`;
   const entries = state.day.entries.filter((e) => !e.running);
+  $("#entries-total").textContent = entries.length
+    ? `${hours(state.day.worked_min)} · ${entries.length} ${entries.length === 1 ? "entry" : "entries"}`
+    : "";
   if (entries.length === 0) {
     box.innerHTML = viewingToday
       ? `<p class="empty">No entries yet today. Start a timer or add one below.</p>`
@@ -291,9 +331,16 @@ function refreshFormOptions() {
   }
 }
 
+function refreshTaskPickers() {
+  for (const f of [$("#start-form"), $("#manual-form")]) {
+    if (f?.task) refreshSelect(f.task, taskOptions());
+  }
+}
+
 // ---------- wiring ----------
 export function initToday() {
   onRefsChanged(refreshFormOptions);
+  document.addEventListener("todos-changed", refreshTaskPickers);
   $("#day-prev").addEventListener("click", () => gotoDate(shiftISO(state.viewDate, -1)));
   $("#day-next").addEventListener("click", () => gotoDate(shiftISO(state.viewDate, 1)));
   $("#day-today").addEventListener("click", () => gotoDate(todayISO()));

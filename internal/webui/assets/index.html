@@ -21,12 +21,9 @@
       <span class="brand-name">Chronos</span>
     </a>
 
-    <nav class="topnav" id="topnav" aria-label="Sections">
+    <nav class="topnav" id="topnav" aria-label="Pages">
       <a href="#today" class="active">Today</a>
-      <a href="#clients">Clients</a>
       <a href="#templates">Templates</a>
-      <a href="#library">Library</a>
-      <a href="#reports">Reports</a>
     </nav>
 
     <button id="bar-timer" class="bar-timer" hidden title="A timer is running — go to it">
@@ -36,6 +33,12 @@
     </button>
 
     <div class="top-actions">
+      <button id="clients-btn" class="top-btn" title="Clients" aria-label="Clients">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3.5 19c.6-3.4 2.8-5 5.5-5s4.9 1.6 5.5 5"/><circle cx="16.5" cy="9" r="2.6"/><path d="M16.5 14.6c2.2.2 3.6 1.6 4 4.4"/></svg>
+      </button>
+      <button id="reports-btn" class="top-btn" title="Reports" aria-label="Reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M21 20H3"/></svg>
+      </button>
       <button id="palette-btn" class="top-btn" title="Search & actions (⌘K)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <kbd aria-hidden="true">⌘K</kbd>
@@ -51,7 +54,7 @@
 
   <main class="page">
     <!-- ===== TODAY — the workspace ===== -->
-    <section id="today" class="section">
+    <section id="today" class="view active">
       <div class="day-head">
         <div class="day-title">
           <h1 id="day-label">Today</h1>
@@ -78,8 +81,13 @@
 
       <div class="workspace">
         <div class="entries-col">
-          <h2 class="section-title" id="entries-title">Today's entries</h2>
-          <div id="entries" class="entries"></div>
+          <div class="ledger" id="ledger">
+            <div class="ledger-head">
+              <h2 class="section-title" id="entries-title">Coded today</h2>
+              <span class="ledger-total" id="entries-total"></span>
+            </div>
+            <div id="entries" class="entries"></div>
+          </div>
           <details class="manual" id="manual">
             <summary>＋ Add an entry</summary>
             <form id="manual-form" class="manual-form"></form>
@@ -106,23 +114,8 @@
       </div>
     </section>
 
-    <!-- ===== CLIENTS ===== -->
-    <section id="clients" class="section">
-      <header class="sec-head">
-        <h2>Clients</h2>
-        <p class="sec-sub">Every client carries your firm's number, so time lands where it should.</p>
-      </header>
-      <form id="client-form" class="inline-form">
-        <input name="name" placeholder="Client name" required />
-        <input name="code" placeholder="Client #" class="short" />
-        <button type="submit">Add</button>
-        <button type="button" id="client-import-btn" class="ghost-btn">Import CSV</button>
-      </form>
-      <div id="client-list" class="client-list"></div>
-    </section>
-
     <!-- ===== TEMPLATES ===== -->
-    <section id="templates" class="section">
+    <section id="templates" class="view">
       <header class="sec-head">
         <h2>Templates</h2>
         <p class="sec-sub">Finished letters and worksheets saved for the next similar job — with notes on what's inside.</p>
@@ -134,42 +127,62 @@
       <div id="tpl-results"></div>
     </section>
 
-    <!-- ===== LIBRARY ===== -->
-    <section id="library" class="section">
-      <header class="sec-head">
-        <h2>Library</h2>
-        <p class="sec-sub">Everything you've ever coded, one search away.</p>
-      </header>
-      <div class="lib-bar">
-        <input id="lib-search" type="search" placeholder="Search past work…" />
-      </div>
-      <div id="lib-results"></div>
-    </section>
-
-    <!-- ===== REPORTS ===== -->
-    <section id="reports" class="section">
-      <header class="sec-head">
-        <h2>Reports</h2>
-        <p class="sec-sub">Any range, grouped how your firm thinks — client, work type, or day.</p>
-      </header>
-      <form id="report-form" class="report-form">
-        <label>From <input type="date" name="from" /></label>
-        <label>To <input type="date" name="to" /></label>
-        <label>Group by
-          <select name="group_by">
-            <option value="client">Client</option>
-            <option value="work_type">Work type</option>
-            <option value="day">Day</option>
-          </select>
-        </label>
-        <button type="submit">Run</button>
-        <a id="export-link" class="ghost-btn" href="#">Export CSV</a>
-      </form>
-      <div id="report-out" class="report-out"></div>
-    </section>
-
     <footer class="page-foot">Chronos — time &amp; client work</footer>
   </main>
+
+  <!-- clients dialog -->
+  <dialog id="clients-dialog">
+    <div class="dialog-head">
+      <h2>Clients</h2>
+      <button type="button" class="icon-btn dialog-close" data-close="clients-dialog" title="Close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="dialog-note">Every client carries your firm's number, so time lands where it should.</p>
+    <form id="client-form" class="inline-form">
+      <input name="name" placeholder="Client name" required />
+      <input name="code" placeholder="Client #" class="short" />
+      <button type="submit">Add</button>
+      <button type="button" id="client-import-btn" class="ghost-btn">Import CSV</button>
+    </form>
+    <div id="client-list" class="client-list"></div>
+  </dialog>
+
+  <!-- reports overlay -->
+  <dialog id="reports-dialog" class="reports-dialog">
+    <div class="dialog-head">
+      <h2>Reports</h2>
+      <button type="button" class="icon-btn dialog-close" data-close="reports-dialog" title="Close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="report-range">
+      <div class="range-chips" id="range-chips">
+        <button type="button" data-range="this-month">This month</button>
+        <button type="button" data-range="last-month">Last month</button>
+        <button type="button" data-range="this-year">This year</button>
+        <button type="button" data-range="last-year">Last year</button>
+      </div>
+      <div class="range-dates">
+        <label>From <input type="date" id="rep-from" /></label>
+        <label>To <input type="date" id="rep-to" /></label>
+      </div>
+    </div>
+    <div class="report-tiles" id="report-tiles"></div>
+    <div class="report-controls">
+      <label>Group by
+        <select id="rep-group">
+          <option value="client">Client</option>
+          <option value="work_type">Work type</option>
+          <option value="day">Day</option>
+        </select>
+      </label>
+      <label>Client<select id="rep-client"></select></label>
+      <label>Work type<select id="rep-worktype"></select></label>
+      <a id="rep-export" class="ghost-btn" href="#" download>Export to Excel</a>
+    </div>
+    <div id="report-out" class="report-out"></div>
+  </dialog>
 
   <!-- slide-over panel: client detail, template editor -->
   <div class="scrim" id="scrim" aria-hidden="true"></div>

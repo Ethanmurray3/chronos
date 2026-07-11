@@ -255,6 +255,19 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	// Reports total vacation by the "Vacation" work type; databases seeded
+	// before it existed need it added. Fresh databases get it from seed()
+	// (which only runs while there are no users), so gate on a user existing.
+	if _, err := s.db.Exec(`
+		INSERT INTO work_types (owner_id, name, category, billable_default, sort)
+		SELECT ?1, 'Vacation', 'internal', 0,
+		       (SELECT COALESCE(MAX(sort), -1) + 1 FROM work_types WHERE owner_id = ?1)
+		 WHERE EXISTS (SELECT 1 FROM users)
+		   AND NOT EXISTS (SELECT 1 FROM work_types
+		                    WHERE owner_id = ?1 AND name = 'Vacation' COLLATE NOCASE)`,
+		SeedOwner); err != nil {
+		return err
+	}
 	if !cols["category"] {
 		if _, err := s.db.Exec(`ALTER TABLE templates ADD COLUMN category TEXT NOT NULL DEFAULT ''`); err != nil {
 			return err
@@ -318,6 +331,7 @@ func (s *Store) seed() error {
 		{"General", "internal", false},
 		{"Admin", "internal", false},
 		{"Professional development", "internal", false},
+		{"Vacation", "internal", false},
 	}
 	for i, w := range catalog {
 		b := 0

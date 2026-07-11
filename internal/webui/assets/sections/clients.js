@@ -1,5 +1,6 @@
-// The clients section: compact list + add/import, with the detail view in
-// the slide-over panel.
+// The clients dialog: compact list + add/import, with the detail view in
+// the slide-over panel (the dialog closes first so the panel isn't buried
+// under the modal).
 
 import { $, esc, hours, toast, GET, POST } from "../lib/api.js";
 import { state, reloadRefs, clientLabel, onRefsChanged } from "../lib/state.js";
@@ -63,11 +64,19 @@ async function submitClient(e) {
   }
 }
 
+export function openClients() {
+  $("#clients-dialog").showModal();
+}
+
 export function initClients() {
   onRefsChanged(renderClients);
+  $("#clients-btn").addEventListener("click", openClients);
   $("#client-form").addEventListener("submit", submitClient);
   $("#client-list").addEventListener("click", (e) => {
     const row = e.target.closest(".client-row");
-    if (row) openClientPanel(parseInt(row.dataset.id, 10));
+    if (row) {
+      $("#clients-dialog").close();
+      openClientPanel(parseInt(row.dataset.id, 10));
+    }
   });
 }

@@ -1,50 +1,74 @@
-// The reports section: range + group-by summary table with CSV export.
-// Auto-runs the current month the first time it scrolls into view.
+// The reports overlay: a mini dashboard for any date range. Summary tiles
+// (worked, billable, overtime, vacation) from /reports/range on top, the
+// grouped/filterable breakdown from /reports/summary below, and the whole
+// thing exportable as a real Excel workbook.
 
-import { $, esc, hours, todayISO, toast, GET } from "../lib/api.js";
+import { $, esc, hours, toast, GET } from "../lib/api.js";
+import { clientOptions, workTypeOptions, onRefsChanged } from "../lib/state.js";
 
-let ran = false;
+const iso = (d) => d.toISOString().slice(0, 10);
 
-export function initReports() {
-  const f = $("#report-form");
-  const d = new Date();
-  f.from.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-  f.to.value = todayISO();
-  updateExportLink();
-  f.addEventListener("submit", runReport);
-  f.addEventListener("change", updateExportLink);
+function rangeFor(chip) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  switch (chip) {
+    case "last-month": return [new Date(y, m - 1, 1), new Date(y, m, 0)];
+    case "this-year":  return [new Date(y, 0, 1), now];
+    case "last-year":  return [new Date(y - 1, 0, 1), new Date(y - 1, 11, 31)];
+    default:           return [new Date(y, m, 1), now]; // this month
+  }
 }
 
-// first-scroll-into-view hook so the section is never empty
-export function autoRunReports() {
-  if (ran) return;
-  $("#report-form").requestSubmit();
+function params() {
+  const q = new URLSearchParams({ from: $("#rep-from").value, to: $("#rep-to").value });
+  q.set("group_by", $("#rep-group").value);
+  if ($("#rep-client").value) q.set("client_id", $("#rep-client").value);
+  if ($("#rep-worktype").value) q.set("work_type_id", $("#rep-worktype").value);
+  return q;
 }
 
-function updateExportLink() {
-  $("#export-link").href = exportURL();
+export function openReports() {
+  if (!$("#rep-from").value) setRange("this-month");
+  $("#reports-dialog").showModal();
+  runReport();
 }
 
-export function exportURL() {
-  const f = $("#report-form");
-  return `/api/v1/export.csv?from=${f.from.value}&to=${f.to.value}`;
+function setRange(chip) {
+  const [from, to] = rangeFor(chip);
+  $("#rep-from").value = iso(from);
+  $("#rep-to").value = iso(to);
+  for (const b of $("#range-chips").children) b.classList.toggle("active", b.dataset.range === chip);
 }
 
-async function runReport(e) {
-  e.preventDefault();
-  ran = true;
-  const f = e.target;
-  updateExportLink();
+async function runReport() {
+  const from = $("#rep-from").value, to = $("#rep-to").value;
+  if (!from || !to) return;
+  const q = params();
+  $("#rep-export").href = "/api/v1/reports/export.xlsx?" + q.toString();
   try {
-    const { rows } = await GET(
-      `/api/v1/reports/summary?from=${f.from.value}&to=${f.to.value}&group_by=${f.group_by.value}`);
-    renderReport(rows, f.group_by.value);
+    const [rng, { rows }] = await Promise.all([
+      GET(`/api/v1/reports/range?from=${from}&to=${to}`),
+      GET("/api/v1/reports/summary?" + q.toString()),
+    ]);
+    renderTiles(rng);
+    renderTable(rows, $("#rep-group").value);
   } catch (err) {
     toast(err.message, true);
   }
 }
 
-function renderReport(rows, groupBy) {
+function renderTiles(r) {
+  const tile = (label, min, cls = "") =>
+    `<div class="fig ${cls}"><span class="fig-val">${hours(min)}</span><span class="fig-label">${label}</span></div>`;
+  $("#report-tiles").innerHTML =
+    tile("worked", r.worked_min, "accent") +
+    tile("billable", r.billable_min) +
+    tile("non-billable", r.non_billable_min) +
+    tile("overtime", r.overtime_min, r.overtime_min > 0 ? "warn" : "") +
+    tile("vacation", r.vacation_min, "good");
+}
+
+function renderTable(rows, groupBy) {
   const out = $("#report-out");
   if (!rows || rows.length === 0) {
     out.innerHTML = `<p class="empty">No time in this range.</p>`;
@@ -65,4 +89,28 @@ function renderReport(rows, groupBy) {
     <tbody>${body}</tbody>
     <tfoot><tr><td>Total</td><td class="num">${hours(tWorked)}</td><td class="num">${hours(tBill)}</td><td class="num">${hours(tBilled)}</td><td class="num">${tCount}</td></tr></tfoot>
   </table>`;
+}
+
+function renderFilters() {
+  $("#rep-client").innerHTML = clientOptions().replace("— client —", "All clients");
+  $("#rep-worktype").innerHTML = workTypeOptions().replace("— work type —", "All work types");
+}
+
+export function initReports() {
+  onRefsChanged(renderFilters);
+  $("#reports-btn").addEventListener("click", openReports);
+  $("#range-chips").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-range]");
+    if (!b) return;
+    setRange(b.dataset.range);
+    runReport();
+  });
+  for (const id of ["#rep-from", "#rep-to", "#rep-group", "#rep-client", "#rep-worktype"]) {
+    $(id).addEventListener("change", () => {
+      // custom dates clear the chip highlight
+      if (id === "#rep-from" || id === "#rep-to")
+        for (const b of $("#range-chips").children) b.classList.remove("active");
+      runReport();
+    });
+  }
 }

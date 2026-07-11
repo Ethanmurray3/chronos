@@ -1,12 +1,12 @@
-// The command palette (⌘K / Ctrl+K): actions, client jump, library search.
+// The command palette (⌘K / Ctrl+K): actions, client jump, template search.
 // Action handlers are injected from app.js so this module stays free of
 // section imports.
 
-import { $, esc, GET, toast } from "./api.js";
+import { $, esc, GET } from "./api.js";
 import { state, clientLabel } from "./state.js";
 
 let actions = []; // { label, hint, when?, run }
-let handlers = {}; // { openClient(id), openTemplate(id), searchLibrary(q) }
+let handlers = {}; // { openClient(id), openTemplate(id) }
 let items = []; // currently rendered { label, hint, kind, run }
 let sel = 0;
 let searchTimer = null;
@@ -84,14 +84,8 @@ function close() {
 
 async function runSearch(q) {
   try {
-    // templates and past work live behind separate searches now; the
-    // palette shows both, templates first.
-    const enc = encodeURIComponent(q);
-    const [tpl, ent] = await Promise.all([
-      GET("/api/v1/templates?q=" + enc),
-      GET("/api/v1/search?q=" + enc),
-    ]);
-    searchHits = [...(tpl.hits || []).slice(0, 4), ...(ent.hits || []).slice(0, 4)];
+    const { hits } = await GET("/api/v1/templates?q=" + encodeURIComponent(q));
+    searchHits = (hits || []).slice(0, 6);
     searchedFor = q;
     if ($("#palette").open && $("#palette-input").value.trim() === q) render(q);
   } catch {
@@ -125,10 +119,9 @@ function render(q) {
       for (const h of searchHits) {
         items.push({
           label: h.title,
-          hint: h.kind === "template" ? "template" : `past work${h.date ? " · " + h.date : ""}`,
-          kind: h.kind,
-          run: () =>
-            h.kind === "template" ? handlers.openTemplate(h.id) : handlers.searchLibrary(q),
+          hint: "template",
+          kind: "template",
+          run: () => handlers.openTemplate(h.id),
         });
       }
     }

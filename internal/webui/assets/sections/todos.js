@@ -22,6 +22,8 @@ export async function refreshRail() {
   state.todos = todos;
   state.attention = att.items || [];
   renderRail();
+  // the timer/manual forms embed task pickers built from state.todos
+  document.dispatchEvent(new CustomEvent("todos-changed"));
 }
 
 function renderRail() {

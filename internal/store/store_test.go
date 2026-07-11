@@ -367,6 +367,105 @@ func TestTemplateMigration(t *testing.T) {
 	s2.Close()
 }
 
+// TestRangeReport exercises the period math: weekday OT is time beyond the
+// daily standard, every weekend minute is OT, and vacation is totalled
+// separately without ever counting as OT.
+func TestRangeReport(t *testing.T) {
+	s := openTest(t)
+	if err := s.SaveSettings(SeedOwner, Settings{
+		BusySeasonTargetMin: 480, OffSeasonTargetMin: 450, RoundingMin: 6,
+		StaleDays: 14, DueSoonDays: 2, Timezone: "UTC",
+	}); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+	wts, _ := s.WorkTypes(SeedOwner)
+	var vacID int64
+	for _, w := range wts {
+		if w.Name == "Vacation" {
+			vacID = w.ID
+		}
+	}
+	if vacID == 0 {
+		t.Fatal("seed catalog is missing the Vacation work type")
+	}
+
+	entry := func(day int, min int64, workType *int64) {
+		t.Helper()
+		started := time.Date(2025, 6, day, 9, 0, 0, 0, time.UTC).Unix()
+		if _, err := s.CreateEntry(SeedOwner, EntryInput{
+			Description: "x", StartedAt: started, DurationMin: min, WorkTypeID: workType,
+		}); err != nil {
+			t.Fatalf("CreateEntry day %d: %v", day, err)
+		}
+	}
+	// June 2025 (off season, 450 min/day standard):
+	entry(2, 480, nil)    // Mon Jun 2: 30 min over standard → 30 OT
+	entry(3, 300, nil)    // Tue Jun 3: under standard → 0 OT
+	entry(7, 120, nil)    // Sat Jun 7: weekend → all 120 OT
+	entry(9, 450, &vacID) // Mon Jun 9: full vacation day → 0 OT, 450 vacation
+
+	rep, err := s.RangeReport(SeedOwner, "2025-06-01", "2025-06-30")
+	if err != nil {
+		t.Fatalf("RangeReport: %v", err)
+	}
+	assertEq(t, "worked", rep.WorkedMin, 480+300+120+450)
+	assertEq(t, "overtime", rep.OvertimeMin, 30+0+120+0)
+	assertEq(t, "vacation", rep.VacationMin, 450)
+	if len(rep.Days) != 4 {
+		t.Fatalf("days = %d, want 4", len(rep.Days))
+	}
+	if !rep.Days[2].Weekend || rep.Days[2].OvertimeMin != 120 {
+		t.Errorf("Saturday row wrong: %+v", rep.Days[2])
+	}
+
+	// A range that excludes June finds nothing.
+	empty, err := s.RangeReport(SeedOwner, "2025-07-01", "2025-07-31")
+	if err != nil {
+		t.Fatalf("RangeReport empty: %v", err)
+	}
+	assertEq(t, "empty worked", empty.WorkedMin, 0)
+	assertEq(t, "empty overtime", empty.OvertimeMin, 0)
+}
+
+func TestSummaryReportFilters(t *testing.T) {
+	s := openTest(t)
+	a, _ := s.CreateClient(SeedOwner, "Acme", "1", "")
+	b, _ := s.CreateClient(SeedOwner, "Bravo", "2", "")
+	wts, _ := s.WorkTypes(SeedOwner)
+	w1, w2 := wts[0].ID, wts[1].ID
+	started := time.Date(2025, 6, 2, 9, 0, 0, 0, time.Local).Unix()
+	mk := func(c, w int64, min int64) {
+		t.Helper()
+		if _, err := s.CreateEntry(SeedOwner, EntryInput{
+			ClientID: &c, WorkTypeID: &w, StartedAt: started, DurationMin: min,
+		}); err != nil {
+			t.Fatalf("CreateEntry: %v", err)
+		}
+	}
+	mk(a.ID, w1, 60)
+	mk(a.ID, w2, 30)
+	mk(b.ID, w1, 90)
+
+	rows, err := s.SummaryReport(SeedOwner, "2025-06-01", "2025-06-30", "client", &a.ID, nil)
+	if err != nil {
+		t.Fatalf("SummaryReport client filter: %v", err)
+	}
+	if len(rows) != 1 || rows[0].WorkedMin != 90 {
+		t.Errorf("client filter rows = %+v, want one Acme row of 90", rows)
+	}
+	rows, err = s.SummaryReport(SeedOwner, "2025-06-01", "2025-06-30", "client", nil, &w1)
+	if err != nil {
+		t.Fatalf("SummaryReport work-type filter: %v", err)
+	}
+	var total int64
+	for _, r := range rows {
+		total += r.WorkedMin
+	}
+	if len(rows) != 2 || total != 150 {
+		t.Errorf("work-type filter rows = %+v, want Acme 60 + Bravo 90", rows)
+	}
+}
+
 func TestWorkTypeDeleteGuard(t *testing.T) {
 	s := openTest(t)
 	wts, _ := s.WorkTypes(SeedOwner)

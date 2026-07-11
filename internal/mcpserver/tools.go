@@ -305,11 +305,15 @@ func toolTable() []Tool {
 		{
 			Name: "summary_report",
 			Description: "Totals for a date range grouped by client, work_type, or day — worked, " +
-				"billable, and billed (rounded to the firm's increment) minutes per bucket.",
+				"billable, and billed (rounded to the firm's increment) minutes per bucket. " +
+				"Optionally filtered to one client and/or one work type ('time on Acme', " +
+				"'time on T2s this year').",
 			InputSchema: obj(map[string]any{
-				"from":     str("Start date, YYYY-MM-DD."),
-				"to":       str("End date, YYYY-MM-DD (inclusive)."),
-				"group_by": str("client | work_type | day (default client)."),
+				"from":      str("Start date, YYYY-MM-DD."),
+				"to":        str("End date, YYYY-MM-DD (inclusive)."),
+				"group_by":  str("client | work_type | day (default client)."),
+				"client":    str("Filter: client name or number (optional)."),
+				"work_type": str("Filter: work type name (optional)."),
 			}, "from", "to"),
 			handler: func(c *APIClient, args map[string]any) (string, error) {
 				q := url.Values{}
@@ -318,8 +322,44 @@ func toolTable() []Tool {
 				if g := argStr(args, "group_by"); g != "" {
 					q.Set("group_by", g)
 				}
+				clientID, _, err := resolveClient(c, argStr(args, "client"))
+				if err != nil {
+					return "", err
+				}
+				if clientID != nil {
+					q.Set("client_id", fmt.Sprintf("%d", *clientID))
+				}
+				workTypeID, _, err := resolveWorkType(c, argStr(args, "work_type"))
+				if err != nil {
+					return "", err
+				}
+				if workTypeID != nil {
+					q.Set("work_type_id", fmt.Sprintf("%d", *workTypeID))
+				}
 				var out any
 				if err := c.get("/api/v1/reports/summary?"+q.Encode(), &out); err != nil {
+					return "", err
+				}
+				return pretty(out), nil
+			},
+		},
+		{
+			Name: "period_report",
+			Description: "Period totals for a date range: worked, billable, non-billable, billed, " +
+				"OVERTIME (Mon–Fri time beyond the seasonal daily standard; every weekend " +
+				"minute counts), and VACATION (time on the Vacation work type), plus the " +
+				"per-day breakdown. Use for 'how much OT did I work in June' or 'vacation " +
+				"taken in 2025'.",
+			InputSchema: obj(map[string]any{
+				"from": str("Start date, YYYY-MM-DD."),
+				"to":   str("End date, YYYY-MM-DD (inclusive)."),
+			}, "from", "to"),
+			handler: func(c *APIClient, args map[string]any) (string, error) {
+				q := url.Values{}
+				q.Set("from", argStr(args, "from"))
+				q.Set("to", argStr(args, "to"))
+				var out any
+				if err := c.get("/api/v1/reports/range?"+q.Encode(), &out); err != nil {
 					return "", err
 				}
 				return pretty(out), nil

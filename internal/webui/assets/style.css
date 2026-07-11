@@ -295,19 +295,16 @@ kbd {
   padding: 0 clamp(1rem, 3.5vw, 2.5rem) 5rem;
 }
 
-.section {
-  padding-top: 3.6rem;
-  scroll-margin-top: calc(var(--topbar-h) + 4px);
-}
-#today { padding-top: 2rem; }
-.section + .section { margin-top: 2.4rem; }
+/* the two pages: only the active view renders */
+.view { display: none; padding-top: 2rem; }
+.view.active { display: block; }
 
-/* entrance: each section rises once, when it first scrolls into view */
-.section.in-view > * { animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-.section.in-view > *:nth-child(2) { animation-delay: 45ms; }
-.section.in-view > *:nth-child(3) { animation-delay: 90ms; }
-.section.in-view > *:nth-child(4) { animation-delay: 135ms; }
-.section.in-view > *:nth-child(n + 5) { animation-delay: 180ms; }
+/* entrance: the view rises when it becomes active */
+.view.active > * { animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.view.active > *:nth-child(2) { animation-delay: 45ms; }
+.view.active > *:nth-child(3) { animation-delay: 90ms; }
+.view.active > *:nth-child(4) { animation-delay: 135ms; }
+.view.active > *:nth-child(n + 5) { animation-delay: 180ms; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(9px); }
   to { opacity: 1; transform: none; }
@@ -465,7 +462,7 @@ kbd {
 
 .start-form {
   display: grid;
-  grid-template-columns: 1fr 1fr 2fr auto;
+  grid-template-columns: 1fr 1fr 1fr 2fr auto;
   gap: 0.65rem;
   align-items: end;
 }
@@ -521,6 +518,25 @@ kbd {
 }
 
 /* ---------------- entries: the ledger ---------------- */
+/* "Coded today" is the record of the day — a card of its own, not an
+   afterthought at the foot of the page. */
+.ledger {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 0.9rem 1.1rem 0.4rem;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+}
+.ledger-head { display: flex; align-items: baseline; gap: 0.8rem; }
+.ledger-head .section-title { flex: 1; margin-bottom: 0.55rem; }
+.ledger-total {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+}
 .entries { border-top: 1px solid var(--line); }
 .entry {
   display: grid;
@@ -600,13 +616,16 @@ kbd {
 .manual summary::-webkit-details-marker { display: none; }
 .manual summary:hover { color: var(--gold); }
 .manual-form {
-  display: grid;
-  grid-template-columns: auto 1fr 1fr 2fr auto auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   align-items: end;
   padding: 0.4rem 0.1rem 1rem;
 }
-.manual-form .hrs { max-width: 84px; }
+.manual-form label { flex: 1 1 130px; margin: 0; }
+.manual-form .grow { flex: 2 1 240px; }
+.manual-form label:has(.hrs) { flex: 0 1 110px; }
+.manual-form .chk { flex: 0 0 auto; }
 
 /* ---------------- the to-do rail ---------------- */
 .todo-form { margin-bottom: 0.9rem; }
@@ -885,13 +904,7 @@ button.mini:hover { border-color: var(--gold); }
 }
 
 /* ---------------- reports ---------------- */
-.report-form {
-  display: flex;
-  gap: 0.9rem;
-  align-items: end;
-  flex-wrap: wrap;
-  margin-bottom: 1.2rem;
-}
+.report-out { overflow-y: auto; }
 .report-out table { width: 100%; border-collapse: collapse; }
 .report-out th,
 .report-out td {
@@ -1236,6 +1249,65 @@ dialog h2 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; fo
 .wt-add { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
 .wt-add input { flex: 1; min-width: min(110px, 100%); }
 
+/* ---------------- clients + reports dialogs ---------------- */
+.dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.dialog-head h2 { margin: 0; }
+.dialog-close { flex-shrink: 0; }
+
+#clients-dialog .client-list { max-height: 55vh; overflow-y: auto; margin-top: 0.9rem; }
+#clients-dialog .inline-form { margin-top: 0.4rem; }
+
+.reports-dialog {
+  max-width: 900px;
+  width: 94vw;
+  max-height: 88vh;
+}
+.report-range {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 1.1rem;
+}
+.range-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.range-chips button {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.28rem 0.8rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.range-chips button:hover { border-color: var(--gold); }
+.range-chips button.active { color: var(--gold); border-color: var(--gold); background: var(--gold-wash); }
+.range-dates { display: flex; gap: 0.7rem; align-items: center; }
+.range-dates label { display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--ink-3); margin: 0; }
+
+.report-tiles {
+  display: flex;
+  gap: clamp(1rem, 4vw, 2.6rem);
+  flex-wrap: wrap;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--gold-wash) 30%, transparent);
+  margin-bottom: 1.1rem;
+}
+.report-controls {
+  display: flex;
+  gap: 0.9rem;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.report-controls label { margin: 0; flex: 0 1 auto; }
+.report-controls #rep-export { margin-left: auto; }
+
 /* ---------------- toast ---------------- */
 .toast {
   position: fixed;
@@ -1270,8 +1342,6 @@ dialog h2 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; fo
   .fig-val { font-size: 1.3rem; }
   .start-form { grid-template-columns: 1fr 1fr; }
   .start-form .grow { grid-column: 1 / -1; }
-  .manual-form { grid-template-columns: 1fr 1fr; }
-  .manual-form .grow { grid-column: 1 / -1; }
 }
 
 @media (max-width: 520px) {
@@ -1281,26 +1351,21 @@ dialog h2 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; fo
   .entry { grid-template-columns: 78px minmax(0, 1fr) auto; }
   .entry .actions { grid-column: 2 / -1; justify-content: flex-end; opacity: 1; }
   .todo-actions { opacity: 1; }
-  .start-form button[type="submit"],
-  .manual-form button[type="submit"] { grid-column: 1 / -1; width: 100%; }
+  .start-form button[type="submit"] { grid-column: 1 / -1; width: 100%; }
+  .manual-form button[type="submit"] { width: 100%; }
 
   .inline-form,
-  .report-form,
   .wt-add {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(96px, 0.62fr);
     align-items: end;
   }
   .inline-form input,
-  .report-form label,
   .wt-add input { width: 100%; }
   .inline-form button,
   .inline-form .ghost-btn,
-  .report-form button,
-  .report-form .ghost-btn,
   .wt-add button,
   .wt-add .ghost-btn { width: 100%; }
-  .report-form label:nth-of-type(3),
   .wt-add .chk { grid-column: 1 / -1; }
   #wt-add-btn { grid-column: 1; }
   #wt-import-btn { grid-column: 2; }
