@@ -39,7 +39,14 @@ function renderDayNav() {
 
 function gotoDate(iso) {
   state.viewDate = iso;
-  refreshToday().catch((e) => toast(e.message, true));
+  refreshToday()
+    .then(() => {
+      // Day navigation is intentional, so move the manual-entry default to
+      // the selected day. Ordinary background refreshes leave it untouched.
+      const form = $("#manual-form");
+      if (form?.date) form.date.value = iso;
+    })
+    .catch((e) => toast(e.message, true));
 }
 
 // ---------- the figures strip ----------
@@ -63,6 +70,17 @@ function renderDaystrip() {
 // ---------- timer hero ----------
 function renderTimer() {
   const card = $("#timer-card");
+  const renderKey = state.timer
+    ? `running:${state.timer.id ?? state.timer.started_at}`
+    : "idle";
+
+  // Keep an unchanged form mounted. Replacing its innerHTML on every polling
+  // refresh discards whatever the user is currently typing.
+  if (card.dataset.renderKey === renderKey) {
+    updateBarTimer();
+    return;
+  }
+
   if (state.timer) {
     const t = state.timer;
     card.innerHTML = `
@@ -88,6 +106,7 @@ function renderTimer() {
     $("#start-form").addEventListener("submit", startTimer);
     $("#start-form").task.addEventListener("change", onTaskPicked);
   }
+  card.dataset.renderKey = renderKey;
   updateBarTimer();
 }
 
@@ -218,7 +237,13 @@ function renderTimeline() {
 
 // ---------- manual entry ----------
 function renderManualForm() {
-  $("#manual-form").innerHTML = `
+  const form = $("#manual-form");
+  // The form has no server-rendered state, so it only needs to be mounted
+  // once. Keeping the nodes alive preserves in-progress input while the day
+  // report refreshes in the background.
+  if (form.elements.length > 0) return;
+
+  form.innerHTML = `
     <label>Date<input type="date" name="date" value="${state.viewDate}" /></label>
     <label>Task<select name="task">${taskOptions()}</select></label>
     <label>Client<select name="client">${clientOptions()}</select></label>
@@ -229,7 +254,7 @@ function renderManualForm() {
     <label>or Hours<input type="number" name="dhours" step="0.1" min="0" placeholder="1.5" class="hrs" /></label>
     <label class="chk"><input type="checkbox" name="billable" checked /> Billable</label>
     <button type="submit">Add</button>`;
-  $("#manual-form").task.addEventListener("change", onTaskPicked);
+  form.task.addEventListener("change", onTaskPicked);
 }
 
 async function submitManual(e) {
@@ -261,7 +286,6 @@ async function submitManual(e) {
       billable: f.billable.checked,
     });
     f.reset();
-    renderManualForm();
     await refreshToday();
     toast("Entry added");
   } catch (err) {
