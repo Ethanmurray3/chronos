@@ -55,6 +55,12 @@ func Open(path string) (*Store, error) {
 		}
 		return nil, err
 	}
+	if err := s.migrate(); err != nil {
+		if cerr := db.Close(); cerr != nil {
+			log.Printf("sqlite close after migrate failure failed: %v", cerr)
+		}
+		return nil, err
+	}
 	if err := s.seed(); err != nil {
 		if cerr := db.Close(); cerr != nil {
 			log.Printf("sqlite close after seed failure failed: %v", cerr)
@@ -153,12 +159,20 @@ CREATE TABLE IF NOT EXISTS todos (
 );
 CREATE INDEX IF NOT EXISTS todos_owner ON todos (owner_id, status);
 
+-- Templates are the standalone deliverable library: an attached document
+-- (letter, worksheet) plus notes about what it contains. The body column
+-- holds those notes (kept named "body" because the FTS table and its
+-- triggers are bound to that column name). work_type_id and source_entry_id
+-- are legacy columns from when templates were created from time entries;
+-- no code reads them anymore.
 CREATE TABLE IF NOT EXISTS templates (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   owner_id        INTEGER NOT NULL,
   work_type_id    INTEGER,
+  client_id       INTEGER,
   title           TEXT    NOT NULL,
   body            TEXT    NOT NULL DEFAULT '',
+  category        TEXT    NOT NULL DEFAULT '',
   tags            TEXT    NOT NULL DEFAULT '',
   source_entry_id INTEGER,
   created_at      INTEGER NOT NULL,
@@ -213,6 +227,57 @@ CREATE TRIGGER IF NOT EXISTS templates_fts_u AFTER UPDATE ON templates BEGIN
   INSERT INTO templates_fts(templates_fts, rowid, title, body, tags) VALUES ('delete', old.id, old.title, old.body, old.tags);
   INSERT INTO templates_fts(rowid, title, body, tags) VALUES (new.id, new.title, new.body, new.tags);
 END;`
+
+// migrate brings databases created under earlier schemas up to date. The
+// schema const only CREATEs IF NOT EXISTS, so existing tables need explicit
+// ALTERs here. Every step is idempotent.
+func (s *Store) migrate() error {
+	// templates.client_id / templates.category (added when templates became
+	// a standalone library decoupled from time coding).
+	cols := map[string]bool{}
+	rows, err := s.db.Query(`SELECT name FROM pragma_table_info('templates')`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		cols[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if !cols["client_id"] {
+		if _, err := s.db.Exec(`ALTER TABLE templates ADD COLUMN client_id INTEGER`); err != nil {
+			return err
+		}
+	}
+	if !cols["category"] {
+		if _, err := s.db.Exec(`ALTER TABLE templates ADD COLUMN category TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+		// The UPDATE below fires the templates_fts delete-then-insert
+		// triggers, which corrupt the index for rows written before FTS
+		// existed — rebuild first so every row is indexed.
+		if _, err := s.db.Exec(`INSERT INTO templates_fts(templates_fts) VALUES ('rebuild')`); err != nil {
+			return err
+		}
+		// One-time backfill: templates saved before the decoupling carried a
+		// work type; its name makes a sensible starting category. Clear the
+		// legacy reference afterwards so work types are free to be deleted.
+		if _, err := s.db.Exec(`
+			UPDATE templates
+			   SET category = COALESCE((SELECT w.name FROM work_types w WHERE w.id = templates.work_type_id), ''),
+			       work_type_id = NULL
+			 WHERE work_type_id IS NOT NULL`); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // seed creates the single user, a default tax work-type catalog, and the
 // default settings the first time the database is empty. It is idempotent.

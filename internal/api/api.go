@@ -49,7 +49,6 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/v1/templates/{id}", s.getTemplate)
 	mux.HandleFunc("PUT /api/v1/templates/{id}", s.updateTemplate)
 	mux.HandleFunc("DELETE /api/v1/templates/{id}", s.deleteTemplate)
-	mux.HandleFunc("POST /api/v1/entries/{id}/template", s.templateFromEntry)
 	mux.HandleFunc("POST /api/v1/templates/{id}/attachments", s.uploadAttachment)
 	mux.HandleFunc("GET /api/v1/attachments/{id}", s.downloadAttachment)
 	mux.HandleFunc("DELETE /api/v1/attachments/{id}", s.deleteAttachment)
@@ -178,7 +177,7 @@ func (s *Server) deleteWorkType(w http.ResponseWriter, r *http.Request) {
 	}
 	err := s.st.DeleteWorkType(currentOwner(r), id)
 	if errors.Is(err, store.ErrInUse) {
-		writeErr(w, http.StatusConflict, "this work type is used by time entries or templates; rename it instead")
+		writeErr(w, http.StatusConflict, "this work type is used by time entries; rename it instead")
 		return
 	}
 	if handleLookupErr(w, err) {

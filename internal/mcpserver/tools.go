@@ -175,8 +175,9 @@ func toolTable() []Tool {
 		},
 		{
 			Name: "search_work",
-			Description: "Full-text search across every past time entry and library template — " +
-				"'what did I do for that reorg' answered from the record.",
+			Description: "Full-text search across every past time entry — " +
+				"'what did I do for that reorg' answered from the record. " +
+				"For saved deliverables use search_templates instead.",
 			InputSchema: obj(map[string]any{
 				"query": str("Search terms, e.g. 'rollover instruction letter'."),
 			}, "query"),
@@ -193,11 +194,33 @@ func toolTable() []Tool {
 			},
 		},
 		{
-			Name: "get_template",
-			Description: "Fetch one library template in full: title, body text, tags, and the names " +
-				"of any attached files (Word letters, PDFs). Use search_work to find its id.",
+			Name: "search_templates",
+			Description: "The template library: finished deliverables (letters, worksheets, step " +
+				"lists) saved with notes about what they contain, organized by category. " +
+				"Without a query, lists every template; with one, full-text search over " +
+				"titles, notes, and tags. Use get_template for the full record.",
 			InputSchema: obj(map[string]any{
-				"id": num("Template id from search_work results."),
+				"query": str("Search terms (optional; omit to list all templates)."),
+			}),
+			handler: func(c *APIClient, args map[string]any) (string, error) {
+				path := "/api/v1/templates"
+				if q := argStr(args, "query"); q != "" {
+					path += "?q=" + url.QueryEscape(q)
+				}
+				var out any
+				if err := c.get(path, &out); err != nil {
+					return "", err
+				}
+				return pretty(out), nil
+			},
+		},
+		{
+			Name: "get_template",
+			Description: "Fetch one template in full: title, category, notes, tags, the client it " +
+				"was originally written for, and the names of any attached files (Word " +
+				"letters, PDFs). Use search_templates to find its id.",
+			InputSchema: obj(map[string]any{
+				"id": num("Template id from search_templates results."),
 			}, "id"),
 			handler: func(c *APIClient, args map[string]any) (string, error) {
 				id, ok := argNum(args, "id")

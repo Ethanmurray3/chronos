@@ -24,6 +24,7 @@
     <nav class="topnav" id="topnav" aria-label="Sections">
       <a href="#today" class="active">Today</a>
       <a href="#clients">Clients</a>
+      <a href="#templates">Templates</a>
       <a href="#library">Library</a>
       <a href="#reports">Reports</a>
     </nav>
@@ -120,15 +121,27 @@
       <div id="client-list" class="client-list"></div>
     </section>
 
+    <!-- ===== TEMPLATES ===== -->
+    <section id="templates" class="section">
+      <header class="sec-head">
+        <h2>Templates</h2>
+        <p class="sec-sub">Finished letters and worksheets saved for the next similar job — with notes on what's inside.</p>
+      </header>
+      <div class="lib-bar">
+        <input id="tpl-search" type="search" placeholder="Search templates…" />
+        <button id="tpl-new" type="button" class="ghost-btn">New template</button>
+      </div>
+      <div id="tpl-results"></div>
+    </section>
+
     <!-- ===== LIBRARY ===== -->
     <section id="library" class="section">
       <header class="sec-head">
         <h2>Library</h2>
-        <p class="sec-sub">Everything you've coded and saved, one search away.</p>
+        <p class="sec-sub">Everything you've ever coded, one search away.</p>
       </header>
       <div class="lib-bar">
-        <input id="lib-search" type="search" placeholder="Search past work and templates…" />
-        <button id="tpl-new" type="button" class="ghost-btn">New template</button>
+        <input id="lib-search" type="search" placeholder="Search past work…" />
       </div>
       <div id="lib-results"></div>
     </section>

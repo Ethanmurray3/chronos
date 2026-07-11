@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -222,47 +223,148 @@ func TestSearchAndTemplates(t *testing.T) {
 		t.Fatalf("CreateEntry: %v", err)
 	}
 
-	// Entry text is searchable, with prefix matching on the last term.
-	hits, err := s.Search(SeedOwner, "rollover instruc", 20)
+	// Entry text is searchable, with prefix matching on the last term —
+	// and templates never leak into the past-work search.
+	hits, err := s.SearchEntries(SeedOwner, "rollover instruc", 20)
 	if err != nil {
-		t.Fatalf("Search: %v", err)
+		t.Fatalf("SearchEntries: %v", err)
 	}
 	if len(hits) != 1 || hits[0].Kind != "entry" || hits[0].ID != e.ID {
-		t.Fatalf("search hits = %+v, want the one entry", hits)
+		t.Fatalf("entry hits = %+v, want the one entry", hits)
 	}
 
-	// Promote to a template; both should now match.
-	tpl, err := s.CreateTemplateFromEntry(SeedOwner, e.ID)
+	// Templates are standalone: category, client label, notes.
+	tpl, err := s.CreateTemplate(SeedOwner, TemplateInput{
+		ClientID: &c.ID,
+		Title:    "Reorg instruction letter — holdco freeze",
+		Notes:    "s.85 rollover steps, PUC grind, price adjustment clause",
+		Category: "Reorg letters",
+		Tags:     "rollover, s85",
+	})
 	if err != nil {
-		t.Fatalf("CreateTemplateFromEntry: %v", err)
+		t.Fatalf("CreateTemplate: %v", err)
 	}
-	if tpl.Body != e.Description || tpl.SourceEntryID == nil || *tpl.SourceEntryID != e.ID {
-		t.Errorf("template not seeded from entry: %+v", tpl)
+	if tpl.ClientName != "Acme Holdings" || tpl.Category != "Reorg letters" {
+		t.Errorf("template missing client/category: %+v", tpl)
 	}
-	hits, _ = s.Search(SeedOwner, "rollover", 20)
-	if len(hits) != 2 || hits[0].Kind != "template" {
-		t.Fatalf("after promote, hits = %+v, want template then entry", hits)
+
+	// Template search is its own index: notes match, entries don't show up.
+	thits, err := s.SearchTemplates(SeedOwner, "rollover", 20)
+	if err != nil {
+		t.Fatalf("SearchTemplates: %v", err)
+	}
+	if len(thits) != 1 || thits[0].Kind != "template" || thits[0].ID != tpl.ID {
+		t.Fatalf("template hits = %+v, want the one template", thits)
+	}
+	ehits, _ := s.SearchEntries(SeedOwner, "rollover", 20)
+	if len(ehits) != 1 || ehits[0].Kind != "entry" {
+		t.Fatalf("entry search polluted: %+v", ehits)
 	}
 
 	// Editing the template keeps the FTS index in sync via triggers.
 	if _, err := s.UpdateTemplate(SeedOwner, tpl.ID, TemplateInput{
-		Title: "Reorg letter skeleton", Body: "butterfly reorganization steps", Tags: "reorg",
+		Title: "Reorg letter skeleton", Notes: "butterfly reorganization steps", Category: "Reorg letters",
 	}); err != nil {
 		t.Fatalf("UpdateTemplate: %v", err)
 	}
-	hits, _ = s.Search(SeedOwner, "butterfly", 20)
-	if len(hits) != 1 || hits[0].Kind != "template" {
-		t.Errorf("updated body not searchable: %+v", hits)
+	thits, _ = s.SearchTemplates(SeedOwner, "butterfly", 20)
+	if len(thits) != 1 {
+		t.Errorf("updated notes not searchable: %+v", thits)
 	}
-	hits, _ = s.Search(SeedOwner, "instruction", 20)
-	if len(hits) != 1 || hits[0].Kind != "entry" {
-		t.Errorf("old template text still indexed or entry lost: %+v", hits)
+	thits, _ = s.SearchTemplates(SeedOwner, "price adjustment", 20)
+	if len(thits) != 0 {
+		t.Errorf("old template text still indexed: %+v", thits)
 	}
 
-	// FTS syntax characters must not break the query.
-	if _, err := s.Search(SeedOwner, `"AND (rollover OR`, 20); err != nil {
-		t.Errorf("hostile query errored: %v", err)
+	// The list is grouped for the Templates page: categories alphabetical,
+	// uncategorized last.
+	if _, err := s.CreateTemplate(SeedOwner, TemplateInput{Title: "loose note"}); err != nil {
+		t.Fatalf("CreateTemplate: %v", err)
 	}
+	if _, err := s.CreateTemplate(SeedOwner, TemplateInput{Title: "CRA response shell", Category: "CRA responses"}); err != nil {
+		t.Fatalf("CreateTemplate: %v", err)
+	}
+	list, err := s.Templates(SeedOwner)
+	if err != nil {
+		t.Fatalf("Templates: %v", err)
+	}
+	if len(list) != 3 || list[0].Category != "CRA responses" || list[1].Category != "Reorg letters" || list[2].Category != "" {
+		t.Errorf("list order wrong: %+v", list)
+	}
+
+	// FTS syntax characters must not break either query.
+	if _, err := s.SearchEntries(SeedOwner, `"AND (rollover OR`, 20); err != nil {
+		t.Errorf("hostile entry query errored: %v", err)
+	}
+	if _, err := s.SearchTemplates(SeedOwner, `"AND (rollover OR`, 20); err != nil {
+		t.Errorf("hostile template query errored: %v", err)
+	}
+}
+
+// TestTemplateMigration opens a database shaped like the pre-decoupling
+// schema (templates without client_id/category, tied to work types) and
+// verifies migrate() adds the columns and turns work-type names into
+// categories.
+func TestTemplateMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	old, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := old.Exec(`
+		CREATE TABLE templates (
+		  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		  owner_id        INTEGER NOT NULL,
+		  work_type_id    INTEGER,
+		  title           TEXT    NOT NULL,
+		  body            TEXT    NOT NULL DEFAULT '',
+		  tags            TEXT    NOT NULL DEFAULT '',
+		  source_entry_id INTEGER,
+		  created_at      INTEGER NOT NULL,
+		  updated_at      INTEGER NOT NULL
+		);
+		CREATE TABLE work_types (
+		  id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL,
+		  name TEXT NOT NULL, category TEXT NOT NULL DEFAULT '',
+		  billable_default INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0
+		);
+		CREATE VIRTUAL TABLE templates_fts USING fts5(
+		  title, body, tags, content='templates', content_rowid='id');
+		CREATE TRIGGER templates_fts_i AFTER INSERT ON templates BEGIN
+		  INSERT INTO templates_fts(rowid, title, body, tags) VALUES (new.id, new.title, new.body, new.tags);
+		END;
+		INSERT INTO work_types (id, owner_id, name) VALUES (7, 1, 'Reorg step letter');
+		INSERT INTO templates (owner_id, work_type_id, title, body, created_at, updated_at)
+		  VALUES (1, 7, 'old template', 'the body', 100, 100);
+	`); err != nil {
+		t.Fatalf("build old schema: %v", err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open over old db: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+
+	list, err := s.Templates(SeedOwner)
+	if err != nil {
+		t.Fatalf("Templates after migrate: %v", err)
+	}
+	if len(list) != 1 || list[0].Category != "Reorg step letter" || list[0].Notes != "the body" {
+		t.Errorf("migrated template = %+v, want work-type name as category", list)
+	}
+	// Reopening must be a no-op (migration is idempotent).
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	s2.Close()
 }
 
 func TestWorkTypeDeleteGuard(t *testing.T) {

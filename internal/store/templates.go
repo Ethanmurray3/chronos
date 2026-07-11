@@ -8,18 +8,25 @@ import (
 	"time"
 )
 
-// Template is a reusable piece of work — a letter skeleton, a reorg step
-// list, a checklist — kept in the library and full-text searchable.
+// Template is a saved deliverable in the library — a finished letter,
+// worksheet, or step list kept for reuse. The attached files are the point;
+// Notes describe what they contain and when to reach for them. Templates are
+// organized by free-text category and may carry a label-only client
+// reference ("originally for Acme Inc.").
 type Template struct {
-	ID            int64  `json:"id"`
-	WorkTypeID    *int64 `json:"work_type_id,omitempty"`
-	Title         string `json:"title"`
-	Body          string `json:"body"`
-	Tags          string `json:"tags"`
-	SourceEntryID *int64 `json:"source_entry_id,omitempty"`
-	CreatedAt     int64  `json:"created_at"`
-	UpdatedAt     int64  `json:"updated_at"`
-	WorkTypeName  string `json:"work_type_name,omitempty"`
+	ID         int64  `json:"id"`
+	ClientID   *int64 `json:"client_id,omitempty"`
+	Title      string `json:"title"`
+	Notes      string `json:"notes"` // stored in the body column (FTS is bound to that name)
+	Category   string `json:"category"`
+	Tags       string `json:"tags"`
+	CreatedAt  int64  `json:"created_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+	ClientName string `json:"client_name,omitempty"`
+
+	// AttachmentCount lets list views show how many files a template carries
+	// without fetching each one.
+	AttachmentCount int64 `json:"attachment_count"`
 
 	// Attachments is populated on single-template fetches only.
 	Attachments []Attachment `json:"attachments,omitempty"`
@@ -27,24 +34,28 @@ type Template struct {
 
 // TemplateInput carries the mutable fields for create/update.
 type TemplateInput struct {
-	WorkTypeID *int64
-	Title      string
-	Body       string
-	Tags       string
+	ClientID *int64
+	Title    string
+	Notes    string
+	Category string
+	Tags     string
 }
 
 const tplCols = `
-  t.id, t.work_type_id, t.title, t.body, t.tags, t.source_entry_id,
-  t.created_at, t.updated_at, w.name`
+  t.id, t.client_id, t.title, t.body, t.category, t.tags,
+  t.created_at, t.updated_at, c.name,
+  (SELECT COUNT(*) FROM attachments a WHERE a.template_id = t.id)`
 
 const tplFrom = `
   FROM templates t
-  LEFT JOIN work_types w ON w.id = t.work_type_id`
+  LEFT JOIN clients c ON c.id = t.client_id`
 
-// Templates lists the owner's templates, most recently updated first.
+// Templates lists the owner's templates grouped for the Templates page:
+// alphabetical by category (uncategorized last), newest first within each.
 func (s *Store) Templates(owner int64) ([]Template, error) {
 	rows, err := s.db.Query(
-		`SELECT`+tplCols+tplFrom+` WHERE t.owner_id = ? ORDER BY t.updated_at DESC`, owner)
+		`SELECT`+tplCols+tplFrom+` WHERE t.owner_id = ?
+		 ORDER BY t.category = '', t.category COLLATE NOCASE, t.updated_at DESC`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +92,9 @@ func (s *Store) Template(owner, id int64) (Template, error) {
 func (s *Store) CreateTemplate(owner int64, in TemplateInput) (Template, error) {
 	now := time.Now().Unix()
 	res, err := s.db.Exec(
-		`INSERT INTO templates (owner_id, work_type_id, title, body, tags, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		owner, in.WorkTypeID, in.Title, in.Body, in.Tags, now, now)
+		`INSERT INTO templates (owner_id, client_id, title, body, category, tags, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		owner, in.ClientID, in.Title, in.Notes, strings.TrimSpace(in.Category), in.Tags, now, now)
 	if err != nil {
 		return Template{}, err
 	}
@@ -94,9 +105,9 @@ func (s *Store) CreateTemplate(owner int64, in TemplateInput) (Template, error) 
 // UpdateTemplate rewrites a template's editable fields.
 func (s *Store) UpdateTemplate(owner, id int64, in TemplateInput) (Template, error) {
 	res, err := s.db.Exec(
-		`UPDATE templates SET work_type_id = ?, title = ?, body = ?, tags = ?, updated_at = ?
+		`UPDATE templates SET client_id = ?, title = ?, body = ?, category = ?, tags = ?, updated_at = ?
 		  WHERE owner_id = ? AND id = ?`,
-		in.WorkTypeID, in.Title, in.Body, in.Tags, time.Now().Unix(), owner, id)
+		in.ClientID, in.Title, in.Notes, strings.TrimSpace(in.Category), in.Tags, time.Now().Unix(), owner, id)
 	if err != nil {
 		return Template{}, err
 	}
@@ -118,69 +129,39 @@ func (s *Store) DeleteTemplate(owner, id int64) error {
 	return nil
 }
 
-// CreateTemplateFromEntry seeds a template from a past time entry: the
-// entry's description becomes the body, its work type carries over, and the
-// client name lands in tags so searches keep finding it.
-func (s *Store) CreateTemplateFromEntry(owner, entryID int64) (Template, error) {
-	e, err := s.Entry(owner, entryID)
-	if err != nil {
-		return Template{}, err
-	}
-	title := e.WorkTypeName
-	if title == "" {
-		title = "Saved entry"
-	}
-	if e.ClientName != "" {
-		title += " — " + e.ClientName
-	}
-	title += " (" + time.Unix(e.StartedAt, 0).Format("Jan 2, 2006") + ")"
-
-	now := time.Now().Unix()
-	res, err := s.db.Exec(
-		`INSERT INTO templates (owner_id, work_type_id, title, body, tags, source_entry_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		owner, e.WorkTypeID, title, e.Description, strings.ToLower(e.ClientName), entryID, now, now)
-	if err != nil {
-		return Template{}, err
-	}
-	id, _ := res.LastInsertId()
-	return s.Template(owner, id)
-}
-
 func scanTemplate(sc scannable) (Template, error) {
 	var t Template
-	var workTypeID, sourceEntryID sql.NullInt64
-	var workTypeName sql.NullString
+	var clientID sql.NullInt64
+	var clientName sql.NullString
 	if err := sc.Scan(
-		&t.ID, &workTypeID, &t.Title, &t.Body, &t.Tags, &sourceEntryID,
-		&t.CreatedAt, &t.UpdatedAt, &workTypeName,
+		&t.ID, &clientID, &t.Title, &t.Notes, &t.Category, &t.Tags,
+		&t.CreatedAt, &t.UpdatedAt, &clientName, &t.AttachmentCount,
 	); err != nil {
 		return Template{}, err
 	}
-	t.WorkTypeID = nullInt(workTypeID)
-	t.SourceEntryID = nullInt(sourceEntryID)
-	t.WorkTypeName = workTypeName.String
+	t.ClientID = nullInt(clientID)
+	t.ClientName = clientName.String
 	return t, nil
 }
 
 // ---- full-text search ----
 
-// SearchHit is one result from the library search — either a template or a
-// past time entry.
+// SearchHit is one result from a full-text search — a template or a past
+// time entry, depending on which search produced it.
 type SearchHit struct {
-	Kind         string `json:"kind"` // template | entry
-	ID           int64  `json:"id"`
-	Title        string `json:"title"`
-	Snippet      string `json:"snippet"` // matched text with <b> marks
-	ClientName   string `json:"client_name,omitempty"`
-	WorkTypeName string `json:"work_type_name,omitempty"`
-	Tags         string `json:"tags,omitempty"`
-	Date         string `json:"date,omitempty"` // entry start date, YYYY-MM-DD
+	Kind       string `json:"kind"` // template | entry
+	ID         int64  `json:"id"`
+	Title      string `json:"title"`
+	Snippet    string `json:"snippet"` // matched text with <b> marks
+	ClientName string `json:"client_name,omitempty"`
+	Category   string `json:"category,omitempty"`
+	Tags       string `json:"tags,omitempty"`
+	Date       string `json:"date,omitempty"` // entry start date, YYYY-MM-DD
 }
 
-// Search runs a full-text query across templates and entry descriptions,
-// templates first, each ranked by FTS5 relevance.
-func (s *Store) Search(owner int64, q string, limit int) ([]SearchHit, error) {
+// SearchTemplates runs a full-text query over template titles, notes, and
+// tags, ranked by FTS5 relevance.
+func (s *Store) SearchTemplates(owner int64, q string, limit int) ([]SearchHit, error) {
 	match := ftsQuery(q)
 	if match == "" {
 		return []SearchHit{}, nil
@@ -188,31 +169,40 @@ func (s *Store) Search(owner int64, q string, limit int) ([]SearchHit, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	out := []SearchHit{}
-
-	tRows, err := s.db.Query(`
-		SELECT t.id, t.title, snippet(templates_fts, 1, '<b>', '</b>', '…', 14), t.tags, COALESCE(w.name, '')
+	rows, err := s.db.Query(`
+		SELECT t.id, t.title, snippet(templates_fts, 1, '<b>', '</b>', '…', 14),
+		       t.category, t.tags, COALESCE(c.name, '')
 		  FROM templates_fts f
 		  JOIN templates t ON t.id = f.rowid
-		  LEFT JOIN work_types w ON w.id = t.work_type_id
+		  LEFT JOIN clients c ON c.id = t.client_id
 		 WHERE templates_fts MATCH ? AND t.owner_id = ?
 		 ORDER BY rank LIMIT ?`, match, owner, limit)
 	if err != nil {
 		return nil, fmt.Errorf("template search: %w", err)
 	}
-	defer tRows.Close()
-	for tRows.Next() {
+	defer rows.Close()
+	out := []SearchHit{}
+	for rows.Next() {
 		h := SearchHit{Kind: "template"}
-		if err := tRows.Scan(&h.ID, &h.Title, &h.Snippet, &h.Tags, &h.WorkTypeName); err != nil {
+		if err := rows.Scan(&h.ID, &h.Title, &h.Snippet, &h.Category, &h.Tags, &h.ClientName); err != nil {
 			return nil, err
 		}
 		out = append(out, h)
 	}
-	if err := tRows.Err(); err != nil {
-		return nil, err
-	}
+	return out, rows.Err()
+}
 
-	eRows, err := s.db.Query(`
+// SearchEntries runs a full-text query over past time-entry descriptions,
+// ranked by FTS5 relevance.
+func (s *Store) SearchEntries(owner int64, q string, limit int) ([]SearchHit, error) {
+	match := ftsQuery(q)
+	if match == "" {
+		return []SearchHit{}, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	rows, err := s.db.Query(`
 		SELECT e.id, snippet(entries_fts, 0, '<b>', '</b>', '…', 14),
 		       COALESCE(c.name, ''), COALESCE(w.name, ''), e.started_at
 		  FROM entries_fts f
@@ -224,21 +214,23 @@ func (s *Store) Search(owner int64, q string, limit int) ([]SearchHit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("entry search: %w", err)
 	}
-	defer eRows.Close()
-	for eRows.Next() {
+	defer rows.Close()
+	out := []SearchHit{}
+	for rows.Next() {
 		h := SearchHit{Kind: "entry"}
+		var workTypeName string
 		var startedAt int64
-		if err := eRows.Scan(&h.ID, &h.Snippet, &h.ClientName, &h.WorkTypeName, &startedAt); err != nil {
+		if err := rows.Scan(&h.ID, &h.Snippet, &h.ClientName, &workTypeName, &startedAt); err != nil {
 			return nil, err
 		}
-		h.Title = h.WorkTypeName
+		h.Title = workTypeName
 		if h.Title == "" {
 			h.Title = "Time entry"
 		}
 		h.Date = time.Unix(startedAt, 0).Format("2006-01-02")
 		out = append(out, h)
 	}
-	return out, eRows.Err()
+	return out, rows.Err()
 }
 
 // ftsQuery turns free text into a safe FTS5 MATCH expression: each term is

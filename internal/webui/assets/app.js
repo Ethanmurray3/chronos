@@ -8,7 +8,8 @@ import { initPalette } from "./lib/palette.js";
 import { initToday, refreshToday, tickTimer, scrollToTimer, stopTimer } from "./sections/today.js";
 import { initTodos, focusTodoForm } from "./sections/todos.js";
 import { initClients, openClientPanel } from "./sections/clients.js";
-import { initLibrary, loadLibrary, libraryLoaded, searchLibraryFor, openTplEditor, openTplEditorById } from "./sections/library.js";
+import { initLibrary, loadLibrary, libraryLoaded, searchLibraryFor } from "./sections/library.js";
+import { initTemplates, loadTemplates, templatesLoaded, openTplEditor, openTplEditorById } from "./sections/templates.js";
 import { initReports, autoRunReports, exportURL } from "./sections/reports.js";
 import { initSettings, openSettings } from "./sections/settings.js";
 
@@ -49,6 +50,7 @@ function wireTopbar() {
   const markFirstView = (sec) => {
     if (sec.classList.contains("in-view")) return;
     sec.classList.add("in-view");
+    if (sec.id === "templates" && !templatesLoaded()) loadTemplates();
     if (sec.id === "library" && !libraryLoaded()) loadLibrary();
     if (sec.id === "reports") autoRunReports();
   };
@@ -108,8 +110,9 @@ const paletteActions = [
       $("#manual-form input[name=description]")?.focus({ preventScroll: true });
     },
   },
-  { label: "New template", hint: "Library", run: () => openTplEditor(null) },
+  { label: "New template", hint: "Templates", run: () => openTplEditor(null) },
   { label: "Go to Clients", run: scrollTo("clients") },
+  { label: "Go to Templates", run: scrollTo("templates") },
   { label: "Go to Library", run: scrollTo("library") },
   { label: "Go to Reports", run: scrollTo("reports") },
   { label: "Settings", run: openSettings },
@@ -130,6 +133,7 @@ async function boot() {
   initToday();
   initTodos();
   initClients();
+  initTemplates();
   initLibrary();
   initReports();
   initSettings();

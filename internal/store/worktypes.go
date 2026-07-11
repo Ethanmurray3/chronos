@@ -78,12 +78,11 @@ func (s *Store) UpdateWorkType(owner, id int64, name, category string, billable 
 }
 
 // DeleteWorkType removes a work type, refusing (ErrInUse) while time entries
-// or templates still reference it — history must stay attributable.
+// still reference it — history must stay attributable.
 func (s *Store) DeleteWorkType(owner, id int64) error {
 	var n int
 	if err := s.db.QueryRow(
-		`SELECT (SELECT COUNT(*) FROM time_entries WHERE owner_id = ?1 AND work_type_id = ?2)
-		      + (SELECT COUNT(*) FROM templates    WHERE owner_id = ?1 AND work_type_id = ?2)`,
+		`SELECT COUNT(*) FROM time_entries WHERE owner_id = ?1 AND work_type_id = ?2`,
 		owner, id).Scan(&n); err != nil {
 		return err
 	}

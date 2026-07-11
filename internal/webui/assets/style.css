@@ -823,6 +823,67 @@ button.mini {
 }
 button.mini:hover { border-color: var(--gold); }
 
+/* ---------------- templates ---------------- */
+.tpl-card {
+  display: block;
+  width: 100%;
+  padding: 0.62rem 0.3rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.tpl-card:hover { background: color-mix(in srgb, var(--gold-wash) 45%, transparent); }
+.tpl-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.94rem;
+}
+.tpl-files {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--gold);
+}
+.tpl-files svg { width: 0.85em; height: 0.85em; }
+.tpl-notes {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin-top: 0.15rem;
+}
+.tpl-notes b { color: var(--gold); background: var(--gold-wash); border-radius: 3px; padding: 0 2px; }
+.tpl-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+.chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--gold-wash) 55%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+}
+
 /* ---------------- reports ---------------- */
 .report-form {
   display: flex;

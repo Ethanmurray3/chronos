@@ -3,9 +3,7 @@
 
 import { $, esc, hours, clock, todayISO, shiftISO, intOrNull, toast, GET, POST, DEL, ic } from "../lib/api.js";
 import { state, clientOptions, workTypeOptions, onRefsChanged } from "../lib/state.js";
-import { claimPanel, panelClaimIsCurrent } from "../lib/panel.js";
 import { refreshRail } from "./todos.js";
-import { openTplEditor } from "./library.js";
 
 export async function refreshToday() {
   const [day, timer] = await Promise.all([
@@ -255,7 +253,6 @@ function renderEntries() {
       </div>
       <div class="dur">${hours(e.effective_min)}</div>
       <div class="actions">
-        <button data-act="tpl" title="Save as template">${ic.copy}</button>
         <button data-act="del" title="Delete">${ic.x}</button>
       </div>
     </div>`).join("");
@@ -270,15 +267,6 @@ async function onEntriesClick(e) {
       if (!confirm("Delete this entry?")) return;
       await DEL("/api/v1/time-entries/" + id);
       await refreshToday();
-    } else if (btn.dataset.act === "tpl") {
-      const claim = claimPanel();
-      const t = await POST(`/api/v1/entries/${id}/template`);
-      if (!panelClaimIsCurrent(claim)) {
-        toast("Saved to library");
-        return;
-      }
-      openTplEditor(t, claim);
-      toast("Saved to library — polish it into a template");
     }
   } catch (err) {
     toast(err.message, true);

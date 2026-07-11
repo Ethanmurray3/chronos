@@ -7,17 +7,29 @@ import (
 )
 
 type templateBody struct {
-	WorkTypeID *int64 `json:"work_type_id"`
-	Title      string `json:"title"`
-	Body       string `json:"body"`
-	Tags       string `json:"tags"`
+	ClientID *int64 `json:"client_id"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes"`
+	Category string `json:"category"`
+	Tags     string `json:"tags"`
 }
 
 func (b templateBody) input() store.TemplateInput {
-	return store.TemplateInput{WorkTypeID: b.WorkTypeID, Title: b.Title, Body: b.Body, Tags: b.Tags}
+	return store.TemplateInput{ClientID: b.ClientID, Title: b.Title, Notes: b.Notes, Category: b.Category, Tags: b.Tags}
 }
 
+// listTemplates returns the template library, category-grouped order. With
+// ?q= it becomes the Templates page's own full-text search instead.
 func (s *Server) listTemplates(w http.ResponseWriter, r *http.Request) {
+	if q := r.URL.Query().Get("q"); q != "" {
+		hits, err := s.st.SearchTemplates(currentOwner(r), q, 20)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"hits": hits})
+		return
+	}
 	ts, err := s.st.Templates(currentOwner(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -82,22 +94,10 @@ func (s *Server) deleteTemplate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// templateFromEntry turns a past time entry into a library template.
-func (s *Server) templateFromEntry(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	t, err := s.st.CreateTemplateFromEntry(currentOwner(r), id)
-	if handleLookupErr(w, err) {
-		return
-	}
-	writeJSON(w, http.StatusCreated, t)
-}
-
-// search is the library's full-text search across templates and entries.
+// search is the full-text search over past coded work (time entries only —
+// templates have their own search on GET /api/v1/templates?q=).
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
-	hits, err := s.st.Search(currentOwner(r), r.URL.Query().Get("q"), 20)
+	hits, err := s.st.SearchEntries(currentOwner(r), r.URL.Query().Get("q"), 20)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

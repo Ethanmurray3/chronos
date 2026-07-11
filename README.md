@@ -57,11 +57,15 @@ importable from CSV.
   everything you've logged for each. Bulk-load from a CSV export of your firm
   system (`name` + `code`/`number` columns); dropdowns show the number
   everywhere.
-- **Library** — reusable templates (letter skeletons, reorg step lists) plus
-  full-text search over *everything you've ever coded*. Save any past entry as
-  a template with one click, then polish it. Attach the real deliverables —
-  Word letters, PDFs, worksheets — to any template; files live on disk next to
-  the database in `chronos-files/`, so backup means copying one folder.
+- **Templates** — the standalone deliverable library, decoupled from time
+  coding. When you finish a letter or worksheet worth reusing, save it here:
+  attach the real file (Word, PDF), write notes about what it contains and
+  when to reach for it, file it under a category ("Reorg letters", "CRA
+  responses"), and optionally label which client it was originally for.
+  Grouped by category with its own full-text search; files live on disk next
+  to the database in `chronos-files/`, so backup means copying one folder.
+- **Library** — full-text search over *everything you've ever coded*, so
+  "what did I do for that reorg" is answered from the record.
 - **Reports** — total any date range grouped by client, work type, or day, and
   export it as CSV. The same CSV shape imports back in (only `date` and
   `minutes` columns are required).
@@ -80,9 +84,9 @@ claude mcp add chronos -- /path/to/chronos-mcp --url http://localhost:8787
 Configuration: `--url` flag or `CHRONOS_URL` env; if `CHRONOS_TOKEN` is set it
 is sent as a Bearer token (ready for when the API grows authentication).
 
-Tools: `day_summary`, `attention`, `search_work`, `get_template`, `log_time`,
-`start_timer`, `stop_timer`, `add_todo`, `list_todos`, `summary_report`,
-`list_clients`, `list_work_types`. Clients and work types are matched by name
+Tools: `day_summary`, `attention`, `search_work`, `search_templates`,
+`get_template`, `log_time`, `start_timer`, `stop_timer`, `add_todo`,
+`list_todos`, `summary_report`, `list_clients`, `list_work_types`. Clients and work types are matched by name
 or client number against your live catalogs — never invented; a miss returns
 the list of real options so the agent can correct itself.
 

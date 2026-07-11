@@ -84,8 +84,14 @@ function close() {
 
 async function runSearch(q) {
   try {
-    const { hits } = await GET("/api/v1/search?q=" + encodeURIComponent(q));
-    searchHits = (hits || []).slice(0, 6);
+    // templates and past work live behind separate searches now; the
+    // palette shows both, templates first.
+    const enc = encodeURIComponent(q);
+    const [tpl, ent] = await Promise.all([
+      GET("/api/v1/templates?q=" + enc),
+      GET("/api/v1/search?q=" + enc),
+    ]);
+    searchHits = [...(tpl.hits || []).slice(0, 4), ...(ent.hits || []).slice(0, 4)];
     searchedFor = q;
     if ($("#palette").open && $("#palette-input").value.trim() === q) render(q);
   } catch {
